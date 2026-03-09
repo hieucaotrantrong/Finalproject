@@ -5,7 +5,7 @@ import { auth } from '../types/auth';
 const router = Router();
 
 /* ---------------------------------------------------
-   FIX EXPRESS TYPESCRIPT RETURN ERROR
+  
 ---------------------------------------------------- */
 const asyncHandler = (fn: any) => {
     return (req: any, res: any, next: any) => {
@@ -22,6 +22,17 @@ router.post('/signup', asyncHandler(authController.signup));
 Login Router
 -----------------------------------*/
 router.post('/login', asyncHandler(authController.login));
+
+/*----------------------------------
+Google Login Router
+-----------------------------------*/
+router.post('/google', asyncHandler(authController.googleLogin));
+/*----------------------------------
+GitHub Login Router
+-----------------------------------*/
+router.get('/github', asyncHandler(authController.githubAuth));
+
+router.get('/github/callback', asyncHandler(authController.githubLogin));
 
 /*----------------------------------
 Profile Routes

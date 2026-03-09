@@ -23,7 +23,7 @@ import Profile from './pages/Profile';
 import WalletPage from './components/WalletPage';
 import OrderHistory from './components/OrderHistory';
 import { useState } from 'react';
-
+import SocialLogin from "./components/SocialLogin";
 /* 🆕 Thêm import trang yêu thích */
 import FavoritePage from './pages/FavoritePage';
 
@@ -84,7 +84,7 @@ function App() {
           <Route path="/profile" element={<Profile />} />
           <Route path="/wallet" element={<WalletPage />} />
           <Route path="/orders" element={<OrderHistory />} />
-
+          <Route path="/social-login" element={<SocialLogin />} />
           {/* 🆕 Trang yêu thích */}
           <Route path="/favorites" element={<FavoritePage />} />
 

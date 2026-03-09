@@ -3,7 +3,9 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import UserModel from '../models/UserModel';
 import { User } from '../interfaces/User';
-
+import { OAuth2Client } from "google-auth-library";
+import axios from "axios";
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 declare global {
     namespace Express {
         interface Request {
@@ -57,6 +59,150 @@ export default {
         }
 
     },
+/*-----------------------------------------
+Google Login API
+-------------------------------------------*/
+async googleLogin(req: Request, res: Response) {
+    try {
+        const { token } = req.body;
+
+        const ticket = await googleClient.verifyIdToken({
+            idToken: token,
+            audience: process.env.GOOGLE_CLIENT_ID
+        });
+
+        const payload = ticket.getPayload();
+
+        if (!payload || !payload.email) {
+            return res.status(401).json({ error: "Google token không hợp lệ" });
+        }
+
+        const email = payload.email;
+        const name = payload.name || "";
+
+        let user = await UserModel.findByEmail(email);
+
+        // Nếu user chưa tồn tại → tạo user mới
+        if (!user) {
+            const newUser: User = {
+                first_name: name,
+                last_name: "",
+                email,
+                password: ""
+            };
+
+            user = await UserModel.createUser(newUser);
+        }
+
+        const jwtToken = jwt.sign(
+            { userId: user.id },
+            process.env.JWT_SECRET as string,
+            { expiresIn: "1h" }
+        );
+
+        const { password: _, ...userWithoutPassword } = user;
+
+        res.json({
+            message: "Đăng nhập Google thành công",
+            token: jwtToken,
+            user: userWithoutPassword
+        });
+
+    } catch (error) {
+        console.error("Google login error:", error);
+        res.status(500).json({ error: "Google login failed" });
+    }
+},
+/*-----------------------------------------
+Github Auth API (redirect sang GitHub)
+-------------------------------------------*/
+async githubAuth(req: Request, res: Response) {
+
+    const clientId = process.env.GITHUB_CLIENT_ID;
+
+    const redirectUrl =
+        `https://github.com/login/oauth/authorize?client_id=${clientId}&scope=user:email`;
+
+    res.redirect(redirectUrl);
+},
+/*-----------------------------------------
+Github Login API
+-------------------------------------------*/
+async githubLogin(req: Request, res: Response) {
+    try {
+
+        const code = req.query.code as string;
+
+        if (!code) {
+            return res.status(400).json({ error: "Thiếu code từ GitHub" });
+        }
+
+        // Lấy access token từ GitHub
+        const tokenResponse = await axios.post(
+            "https://github.com/login/oauth/access_token",
+            {
+                client_id: process.env.GITHUB_CLIENT_ID,
+                client_secret: process.env.GITHUB_CLIENT_SECRET,
+                code
+            },
+            {
+                headers: { Accept: "application/json" }
+            }
+        );
+
+        const access_token = tokenResponse.data.access_token;
+
+        // Lấy thông tin user GitHub
+        const userResponse = await axios.get(
+            "https://api.github.com/user",
+            {
+                headers: {
+                    Authorization: `Bearer ${access_token}`
+                }
+            }
+        );
+
+        const githubUser = userResponse.data;
+
+        const email = githubUser.email || `${githubUser.login}@github.com`;
+        const name = githubUser.name || githubUser.login;
+
+        let user = await UserModel.findByEmail(email);
+
+        // Nếu chưa có user thì tạo
+        if (!user) {
+            const newUser: User = {
+                first_name: name,
+                last_name: "",
+                email,
+                password: ""
+            };
+
+            user = await UserModel.createUser(newUser);
+        }
+
+            const jwtToken = jwt.sign(
+  {
+    userId: user.id,
+    name: user.first_name,
+    email: user.email,
+    avatar: githubUser.avatar_url
+  },
+  process.env.JWT_SECRET as string,
+  { expiresIn: "1h" }
+);
+
+        // redirect về frontend sau khi login
+       // redirect về trang home
+res.redirect(
+  `http://localhost:5173/social-login?token=${jwtToken}`
+);
+
+    } catch (error) {
+        console.error("Github login error:", error);
+        res.status(500).json({ error: "Github login failed" });
+    }
+},
     /*-----------------------------------------
     Create Api Login
     -------------------------------------------*/
