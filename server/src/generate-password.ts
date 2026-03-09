@@ -22,7 +22,7 @@ async function createAdmin() {
             ['Admin', 'System', 'admin@gmail.com', hash, 'admin']
         );
         
-        console.log("\n✅ Đã tạo admin thành công!");
+        console.log("\n Đã tạo admin thành công!");
         console.log("   ID:", result.rows[0].id);
         console.log("   Email:", result.rows[0].email);
         console.log("   Role:", result.rows[0].role);
@@ -33,9 +33,9 @@ async function createAdmin() {
                 `UPDATE users SET password = $1, role = 'admin' WHERE email = $2`,
                 [hash, 'admin@gmail.com']
             );
-            console.log("✅ Đã cập nhật password cho admin!");
+            console.log(" Đã cập nhật password cho admin!");
         } else {
-            console.error("❌ Lỗi:", error.message);
+            console.error(" Lỗi:", error.message);
         }
     }
     
