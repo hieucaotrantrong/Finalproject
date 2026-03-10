@@ -1,50 +1,45 @@
-import React from 'react';
-import { TECarousel, TECarouselItem } from 'tw-elements-react';
-import { Truck, Shirt } from 'lucide-react';
+import React, { useEffect, useState } from "react";
 
 export default function Carousel() {
-    return (
-        <div className="w-full px-10 py-6">
-            <div className="flex items-start justify-between gap-4">
+  const [banners, setBanners] = useState([]);
+  const [current, setCurrent] = useState(0);
 
-                {/*----------------------------------- 
-                Slider bar
-                --------------------------------------*/}
-                <div className="w-[85%] mx-auto">
-                    <TECarousel ride="carousel" showIndicators showControls>
-                        <div className="relative w-full h-64 overflow-hidden after:clear-both after:block after:content-['']">
-                            <TECarouselItem itemID={1} className="relative float-left -mr-[100%] hidden w-full h-full transition-transform duration-[600ms] ease-in-out motion-reduce:transition-none">
-                                <img
-                                    src="https://cdnv2.tgdd.vn/mwg-static/tgdd/Banner/23/05/23050828d3211ce7b91e92473a3690b3.jpg"
-                                    className="w-full h-full object-cover border border-gray-300 rounded-lg"
-                                    alt="Slide 1"
-                                />
-                                {/*
-                                Hieu 
-                                 */}
-                            </TECarouselItem>
-                            <TECarouselItem itemID={2} className="relative float-left -mr-[100%] hidden w-full h-full transition-transform duration-[600ms] ease-in-out motion-reduce:transition-none">
-                                <img
-                                    src="https://cdnv2.tgdd.vn/mwg-static/tgdd/Banner/43/85/43854a7ba231f17252741049cc5a099a.png"
-                                    className="w-full h-full object-cover border border-gray-300 rounded-lg"
-                                    alt="Slide 2"
-                                />
-                            </TECarouselItem>
-                            <TECarouselItem itemID={2} className="relative float-left -mr-[100%] hidden w-full h-full transition-transform duration-[600ms] ease-in-out motion-reduce:transition-none">
-                                <img
-                                    src="https://cdnv2.tgdd.vn/mwg-static/tgdd/Banner/91/1b/911bdb7d43d18d76d89279f143d90f2c.png"
-                                    className="w-full h-full object-cover border border-gray-300 rounded-lg"
-                                    alt="Slide 2"
-                                />
-                            </TECarouselItem>
+  useEffect(() => {
+    fetch("http://localhost:5000/api/banners")
+      .then((res) => res.json())
+      .then((data) => setBanners(data || []))
+      .catch(() => setBanners([]));
+  }, []);
 
 
-                        </div>
-                    </TECarousel>
+  useEffect(() => {
+    if (banners.length <= 1) return;
+    const timer = setInterval(() => {
+      setCurrent((prev) => (prev + 1) % banners.length);
+    }, 3000);
 
-                </div>
+    return () => clearInterval(timer);
+  }, [banners.length]);
 
-            </div>
+  if (!banners.length) return null;
+
+  return (
+    <div className="w-full px-10 py-6">
+      <div className="w-[85%] mx-auto overflow-hidden rounded-lg border border-gray-300">
+        <div
+          className="flex transition-transform duration-700 ease-in-out"
+          style={{ transform: `translateX(-${current * 100}%)` }}
+        >
+          {banners.map((banner, index) => (
+            <img
+              key={banner.id ?? index}
+              src={`/assets/${banner.image_url}`}
+              alt={`banner-${index + 1}`}
+              className="w-full h-64 object-cover flex-shrink-0"
+            />
+          ))}
         </div>
-    );
+      </div>
+    </div>
+  );
 }

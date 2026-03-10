@@ -11,6 +11,7 @@ import notificationsRoutes from './routes/notifications';
 import walletRoutes from './routes/wallet';
 import adminRoutes from './routes/admin';
 import path from 'path';
+import bannerRouter from './routes/bannerRouter';
 /*------------------------------------
 Dotnev
 --------------------------------------*/
@@ -38,6 +39,7 @@ app.use("/api/support", supportRouter);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/banners', bannerRouter);
 /*------------------------------------
 Start Servers
 --------------------------------------*/

@@ -1,37 +1,32 @@
 import React, { useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 
 const PrivateRoute = ({ children, adminRequired = false }) => {
-    const [authStatus, setAuthStatus] = useState('checking');
-    const [isAdmin, setIsAdmin] = useState(false);
+    const location = useLocation();
+
+    const token = localStorage.getItem('token');
+    const userRaw = localStorage.getItem('user');
+    const user = userRaw ? JSON.parse(userRaw) : null;
+
+    const isAuthenticated = !!token && token.trim() !== '';
+    const role = (user?.role || '').toLowerCase();
+    const isAdmin = role === 'admin';
 
     useEffect(() => {
-        /*---------------------------------
-        Check token and role admin
-        ----------------------------------*/
-        const token = localStorage.getItem('token');
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        console.log('PrivateRoute', { token, user });
+    }, [token, user]);
 
-        if (token && token.trim() !== '') {
-            setAuthStatus('authenticated');
-            setIsAdmin(user.role === 'admin');
-        } else {
-            setAuthStatus('unauthenticated');
-        }
-    }, []);
-
-    if (authStatus === 'checking') {
-        return <div>Loading...</div>;
+    if (!isAuthenticated) {
+        return (
+            <Navigate
+                to={`/login?redirect=${encodeURIComponent(location.pathname)}`}
+                replace
+            />
+        );
     }
 
-    if (authStatus === 'unauthenticated') {
-        return <Navigate to="/login" replace />;
-    }
-    /*---------------------------------
-     Navigate to not admin  
-    ----------------------------------*/
     if (adminRequired && !isAdmin) {
-        return <Navigate to="/" replace />;
+        return <Navigate to="/home" replace />;
     }
 
     return children;

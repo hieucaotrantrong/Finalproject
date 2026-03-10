@@ -7,7 +7,7 @@ import WalletManagement from '../components/WalletManagement';
 import Footers from '../components/Footers';
 import AdminUsers from '../components/AdminUsers';
 import { TECarousel, TECarouselItem } from 'tw-elements-react';
-
+import AdminBanner from '../pages/AdminBanner';
 const AdminPage = () => {
     const [activeTab, setActiveTab] = useState('products');
     const [products, setProducts] = useState([]);
@@ -173,6 +173,7 @@ const AdminPage = () => {
                         { key: 'wallet', label: 'Quản lý ví' },
                         { key: 'support', label: 'Quản lý hỗ trợ' },
                         { key: 'users', label: 'Quản lý người dùng' },
+                         { key: 'banners', label: 'Quản lý banner' },
                     ].map((tab) => (
                         <button
                             key={tab.key}
@@ -363,6 +364,8 @@ const AdminPage = () => {
                 <WalletManagement />
             ) : activeTab === 'users' ? (
                 <AdminUsers />
+            ) : activeTab === 'banners' ? (
+                 <AdminBanner />
             ) : (
                 <SupportManagement />
             )}

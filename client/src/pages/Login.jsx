@@ -14,28 +14,27 @@ export default function Login() {
 
     const handleLogin = async () => {
         try {
-            const response = await axios.post('http://localhost:5000/api/auth/login', {
+            const response = await axios.post("http://localhost:5000/api/auth/login", {
                 email,
                 password
             });
 
             const { token, user } = response.data;
 
-            localStorage.setItem('token', token);
-            localStorage.setItem('user', JSON.stringify(user));
-            localStorage.setItem('userEmail', user.email);
+            localStorage.setItem("token", token);
+            localStorage.setItem("user", JSON.stringify(user));
+            localStorage.setItem("userEmail", user.email);
 
-            const redirectTo =
-                new URLSearchParams(location.search).get("redirect") || "/";
+            const redirect = new URLSearchParams(location.search).get("redirect");
+            const role = (user?.role || "").toLowerCase();
+            const fallback = role === "admin" ? "/admin" : "/home";
 
-            navigate(redirectTo, { replace: true });
-
+            navigate(redirect || fallback, { replace: true });
         } catch (error) {
-            console.log('Lỗi chi tiết:', error.response?.data || error.message);
-            alert(error.response?.data?.error || 'Đăng nhập thất bại');
+            console.log("Lỗi chi tiết:", error.response?.data || error.message);
+            alert(error.response?.data?.error || "Đăng nhập thất bại");
         }
     };
-
     return (
         <div>
             <Header />

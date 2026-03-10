@@ -89,14 +89,14 @@ function App() {
           <Route path="/favorites" element={<FavoritePage />} />
 
           {/* Admin (Private Route) */}
-          <Route
-            path="/admin"
-            element={
-              <PrivateRoute>
-                <AdminPage />
-              </PrivateRoute>
-            }
-          />
+        <Route
+        path="/admin"
+         element={
+        <PrivateRoute adminRequired={true}>
+      <AdminPage />
+    </PrivateRoute>
+  }
+/>
         </Routes>
       </Router>
     </CartProvider>
