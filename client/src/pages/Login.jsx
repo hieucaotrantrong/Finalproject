@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from "react-router-dom";
 import Header from '../components/Header';
 import Footers from '../components/Footers';
 import Carousel from '../components/Carousel';
@@ -10,6 +10,7 @@ export default function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const navigate = useNavigate();
+    const location = useLocation();
 
     const handleLogin = async () => {
         try {
@@ -24,11 +25,10 @@ export default function Login() {
             localStorage.setItem('user', JSON.stringify(user));
             localStorage.setItem('userEmail', user.email);
 
-            if (user.role === 'admin') {
-                navigate('/admin');
-            } else {
-                navigate('/home');
-            }
+            const redirectTo =
+                new URLSearchParams(location.search).get("redirect") || "/";
+
+            navigate(redirectTo, { replace: true });
 
         } catch (error) {
             console.log('Lỗi chi tiết:', error.response?.data || error.message);

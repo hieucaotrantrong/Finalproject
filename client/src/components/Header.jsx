@@ -59,10 +59,13 @@ export default function Header() {
                     <Link to="/signup" className="text-sm font-normal hover:underline">
                         Đăng ký
                     </Link>
-                    <div className="flex items-center gap-1 hover:underline cursor-pointer text-sm">
-                        <FaShoppingCart />
-                        Giỏ hàng
-                    </div>
+                   <Link
+    to="/login?redirect=/cart"
+    className="flex items-center gap-1 hover:underline cursor-pointer text-sm"
+>
+    <FaShoppingCart />
+    Giỏ hàng
+</Link>
                     <div className="flex items-center gap-1 bg-yellow-300 px-3 py-2 rounded-full cursor-pointer text-sm">
                         <FaMapMarkerAlt />
                         <span className="truncate max-w-[150px]">Thế giới di động </span>
