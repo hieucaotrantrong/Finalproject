@@ -7,13 +7,16 @@ import Carousel from '../components/Carousel';
 import { GoogleLogin } from '@react-oauth/google';
 
 export default function Login() {
+
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+
     const navigate = useNavigate();
     const location = useLocation();
 
     const handleLogin = async () => {
         try {
+
             const response = await axios.post("http://localhost:5000/api/auth/login", {
                 email,
                 password
@@ -25,22 +28,35 @@ export default function Login() {
             localStorage.setItem("user", JSON.stringify(user));
             localStorage.setItem("userEmail", user.email);
 
-            const redirect = new URLSearchParams(location.search).get("redirect");
+            // ===== THÊM PHẦN NÀY =====
+            const redirect = location.state?.redirect;
+            const product = location.state?.product;
+            // =========================
+
             const role = (user?.role || "").toLowerCase();
             const fallback = role === "admin" ? "/admin" : "/home";
 
-            navigate(redirect || fallback, { replace: true });
+            // nếu login từ nút mua ngay
+            if (redirect === "/cartpay" && product) {
+                navigate("/cartpay", { state: product });
+            } else {
+                navigate(fallback, { replace: true });
+            }
+
         } catch (error) {
             console.log("Lỗi chi tiết:", error.response?.data || error.message);
             alert(error.response?.data?.error || "Đăng nhập thất bại");
         }
     };
+
     return (
         <div>
+
             <Header />
             <Carousel />
 
             <div className="bg-gray-100 flex flex-col justify-center">
+
                 <div className="p-10 xs:p-0 mx-auto md:w-full md:max-w-md">
 
                     <h1 className="font-bold text-center text-2xl mb-5">
@@ -99,88 +115,101 @@ export default function Login() {
                             </button>
                         </div>
 
-                      
-                     {/* SOCIAL LOGIN */}
-                     <div className="p-5">
-<div className="flex flex-col gap-3">
 
-    {/* MAIL */}
-    <button
-      type="button"
-      className="border border-gray-200 text-gray-700 w-full py-3 rounded-lg text-sm shadow-sm hover:shadow-md flex items-center justify-center gap-3 font-semibold"
-    >
-      <img
-        src="https://cdn-icons-png.flaticon.com/512/281/281769.png"
-        className="w-5 h-5"
-      />
-      Đăng nhập bằng MailUp
-    </button>
+                        {/* SOCIAL LOGIN */}
+                        <div className="p-5">
 
+                            <div className="flex flex-col gap-3">
 
-    {/* GOOGLE */}
-    <div className="border border-gray-200 text-gray-700 w-full py-3 rounded-lg text-sm shadow-sm hover:shadow-md flex items-center justify-center gap-3 font-semibold relative">
-
-      <img
-        src="https://cdn-icons-png.flaticon.com/512/2991/2991148.png"
-        className="w-5 h-5"
-      />
-
-      <span>Đăng nhập bằng Google</span>
-
-      <div className="absolute opacity-0">
-        <GoogleLogin
-          onSuccess={async (credentialResponse) => {
-            try {
-
-              const res = await axios.post(
-                "http://localhost:5000/api/auth/google",
-                {
-                  token: credentialResponse.credential
-                }
-              );
-
-              const { token, user } = res.data;
-
-              localStorage.setItem("token", token);
-              localStorage.setItem("user", JSON.stringify(user));
-
-              if (user.role === "admin") {
-                navigate("/admin");
-              } else {
-                navigate("/home");
-              }
-
-            } catch (error) {
-              console.log(error);
-              alert("Đăng nhập Google thất bại");
-            }
-          }}
-
-          onError={() => {
-            console.log("Login Failed");
-          }}
-        />
-      </div>
-
-    </div>
+                                {/* MAIL */}
+                                <button
+                                    type="button"
+                                    className="border border-gray-200 text-gray-700 w-full py-3 rounded-lg text-sm shadow-sm hover:shadow-md flex items-center justify-center gap-3 font-semibold"
+                                >
+                                    <img
+                                        src="https://cdn-icons-png.flaticon.com/512/281/281769.png"
+                                        className="w-5 h-5"
+                                    />
+                                    Đăng nhập bằng MailUp
+                                </button>
 
 
-   {/* GITHUB */}
-<button
-  type="button"
-  onClick={() =>
-    window.location.href = "http://localhost:5000/api/auth/github"
-  }
-  className="border border-gray-200 text-gray-700 w-full py-3 rounded-lg text-sm shadow-sm hover:shadow-md flex items-center justify-center gap-3 font-semibold"
->
-  <img
-    src="https://cdn-icons-png.flaticon.com/512/25/25231.png"
-    className="w-5 h-5"
-  />
-  Đăng nhập bằng Github
-</button>
-  </div>
-</div>
+                                {/* GOOGLE */}
+                                <div className="border border-gray-200 text-gray-700 w-full py-3 rounded-lg text-sm shadow-sm hover:shadow-md flex items-center justify-center gap-3 font-semibold relative">
+
+                                    <img
+                                        src="https://cdn-icons-png.flaticon.com/512/2991/2991148.png"
+                                        className="w-5 h-5"
+                                    />
+
+                                    <span>Đăng nhập bằng Google</span>
+
+                                    <div className="absolute opacity-0">
+
+                                        <GoogleLogin
+                                            onSuccess={async (credentialResponse) => {
+                                                try {
+
+                                                    const res = await axios.post(
+                                                        "http://localhost:5000/api/auth/google",
+                                                        {
+                                                            token: credentialResponse.credential
+                                                        }
+                                                    );
+
+                                                    const { token, user } = res.data;
+
+                                                    localStorage.setItem("token", token);
+                                                    localStorage.setItem("user", JSON.stringify(user));
+
+                                                    // ===== thêm redirect =====
+                                                    const redirect = location.state?.redirect;
+                                                    const product = location.state?.product;
+
+                                                    if (redirect === "/cartpay" && product) {
+                                                        navigate("/cartpay", { state: product });
+                                                    }
+                                                    else if (user.role === "admin") {
+                                                        navigate("/admin");
+                                                    }
+                                                    else {
+                                                        navigate("/home");
+                                                    }
+
+                                                } catch (error) {
+                                                    console.log(error);
+                                                    alert("Đăng nhập Google thất bại");
+                                                }
+                                            }}
+
+                                            onError={() => {
+                                                console.log("Login Failed");
+                                            }}
+                                        />
+
+                                    </div>
+
+                                </div>
+
+
+                                {/* GITHUB */}
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        window.location.href = "http://localhost:5000/api/auth/github"
+                                    }
+                                    className="border border-gray-200 text-gray-700 w-full py-3 rounded-lg text-sm shadow-sm hover:shadow-md flex items-center justify-center gap-3 font-semibold"
+                                >
+                                    <img
+                                        src="https://cdn-icons-png.flaticon.com/512/25/25231.png"
+                                        className="w-5 h-5"
+                                    />
+                                    Đăng nhập bằng Github
+                                </button>
+
+                            </div>
+
+                        </div>
 
 
                         {/* FOOTER */}
@@ -225,10 +254,13 @@ export default function Login() {
                         </div>
 
                     </div>
+
                 </div>
+
             </div>
 
             <Footers />
+
         </div>
     );
 }

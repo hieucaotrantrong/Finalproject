@@ -82,7 +82,7 @@ async googleLogin(req: Request, res: Response) {
 
         let user = await UserModel.findByEmail(email);
 
-        // Nếu user chưa tồn tại → tạo user mới
+      
         if (!user) {
             const newUser: User = {
                 first_name: name,

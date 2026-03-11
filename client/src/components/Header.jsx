@@ -45,6 +45,7 @@ export default function Header() {
                             <input
                                 type="text"
                                 placeholder="Bạn tìm gì..."
+                                
                                 className="w-full px-2 py-1 text-sm outline-none bg-transparent"
                             />
                         </div>
