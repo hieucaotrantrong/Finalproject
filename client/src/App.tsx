@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useSearchParams } from 'react-router-dom';
 import './index.css';
 import { CartProvider } from './context/CartContext';
 import Header from './components/Header';
@@ -31,14 +31,50 @@ import FavoritePage from './pages/FavoritePage';
 Home Create
 -----------------------------------*/
 function HomePage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchQuery = searchParams.get('search') || '';
+  const selectedCategory = searchParams.get('category') || '';
+  const hasFilter = Boolean(searchQuery || selectedCategory);
+
+  const updatePublicFilters = ({ search = '', category = '' }) => {
+    const nextParams = new URLSearchParams();
+
+    if (search) {
+      nextParams.set('search', search);
+    }
+
+    if (category) {
+      nextParams.set('category', category);
+    }
+
+    setSearchParams(nextParams);
+  };
+
   return (
     <>
-      <Header />
-      <Carousel />
-      <CategoryGrid />
-      <PromoBanner />
-      <FlashSale />
-      <MallSection />
+      <Header
+        initialSearchQuery={searchQuery}
+        onSearchSubmit={(value) => {
+          updatePublicFilters({ search: value });
+        }}
+        onCategorySelect={(category) => {
+          updatePublicFilters({ category });
+        }}
+        onSearchClear={() => {
+          updatePublicFilters({});
+        }}
+      />
+      {hasFilter ? (
+        <CartPage searchQuery={searchQuery} categoryFilter={selectedCategory} />
+      ) : (
+        <>
+          <Carousel />
+          <CategoryGrid />
+          <PromoBanner />
+          <FlashSale />
+          <MallSection />
+        </>
+      )}
       <Footers />
     </>
   );

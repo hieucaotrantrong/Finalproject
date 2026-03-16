@@ -96,6 +96,12 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
     const id = req.params.id;
     const { first_name, last_name, role, phone, address, birth_date, gender, avatar } = req.body;
 
+    let genderValue = gender;
+
+    if (!['male', 'female', 'other'].includes(genderValue)) {
+      genderValue = null;
+    }
+
     const result = await pool.query(
       `UPDATE users 
        SET first_name = $1,
@@ -115,7 +121,7 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
         phone || null,
         address || null,
         birth_date || null,
-        gender || null,
+        genderValue,
         avatar || null,
         id
       ]

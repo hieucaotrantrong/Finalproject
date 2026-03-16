@@ -4,6 +4,7 @@ import CartItem from "./CartItem";
 export default function CategoryGrid() {
 
     const [products, setProducts] = useState([]);
+    const [activeTab, setActiveTab] = useState('all');
 
     useEffect(() => {
 
@@ -23,13 +24,19 @@ export default function CategoryGrid() {
     }, []);
 
     const tabs = [
-        { name: 'Tất Cả', active: true },
-        { name: 'Apple', active: false },
-        { name: 'Laptop', active: false },
-        { name: 'Phụ Kiện', active: false },
-        { name: 'Đồng Hồ', active: false },
-        { name: 'PC, Máy In', active: false },
+        { name: 'Tất Cả', value: 'all' },
+        { name: 'Điện thoại', value: 'phone' },
+        { name: 'Laptop', value: 'laptop' },
+        { name: 'Phụ Kiện', value: 'accessory' },
+        { name: 'Đồng Hồ', value: 'watch' },
+        { name: 'Smartwatch', value: 'smartwatch' },
     ];
+
+    const filteredProducts = activeTab === 'all'
+        ? products
+        : products.filter((product) => product.category === activeTab);
+
+    const displayedProducts = filteredProducts.slice(0, 6);
 
     return (
 
@@ -69,8 +76,9 @@ export default function CategoryGrid() {
 
                                 <button
                                     key={index}
+                                    onClick={() => setActiveTab(tab.value)}
                                     className={`px-4 py-2 text-sm font-medium ${
-                                        tab.active
+                                        activeTab === tab.value
                                             ? 'text-blue-600 border-b-2 border-blue-600'
                                             : 'text-gray-500 hover:text-gray-700'
                                     }`}
@@ -104,17 +112,17 @@ export default function CategoryGrid() {
 
                 <div className="flex overflow-x-auto gap-4 pb-2 scrollbar-hide">
 
-                  {products.map((product) => (
-    <CartItem
-        key={product.id}
-        id={product.id}
-        image={product.image}
-        title={product. title    }
-        originalprice={product.originalprice}
-        price={product.price}
-        discount={product.discount}
-    />
-))}
+                    {displayedProducts.map((product) => (
+                        <CartItem
+                            key={product.id}
+                            id={product.id}
+                            image={product.image}
+                            title={product.title}
+                            originalprice={product.originalprice}
+                            price={product.price}
+                            discount={product.discount}
+                        />
+                    ))}
 
                 </div>
 

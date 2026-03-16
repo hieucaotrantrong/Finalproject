@@ -5,6 +5,8 @@ import { FaUser, FaCamera, FaLock, FaArrowLeft } from 'react-icons/fa';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
+const DEFAULT_AVATAR = '/assets/avt.jpg';
+
 const Profile = () => {
     const [user, setUser] = useState(null);
     const [formData, setFormData] = useState({
@@ -22,7 +24,7 @@ const Profile = () => {
         newPassword: '',
         confirmPassword: ''
     });
-    const [preview, setPreview] = useState('');
+    const [preview, setPreview] = useState(DEFAULT_AVATAR);
     const [isLoading, setIsLoading] = useState(false);
     const [activeTab, setActiveTab] = useState('profile');
     const navigate = useNavigate();
@@ -42,7 +44,7 @@ const Profile = () => {
                 gender: userData.gender || '',
                 avatar: userData.avatar || ''
             });
-            setPreview(userData.avatar || 'https://i.pravatar.cc/150');
+            setPreview(userData.avatar || DEFAULT_AVATAR);
         }
     }, []);
 

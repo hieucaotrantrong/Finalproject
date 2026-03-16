@@ -15,9 +15,15 @@ import {
     FaWallet,
 } from "react-icons/fa";
 
+const DEFAULT_AVATAR = '/assets/avt.jpg';
+
 export default function Home({ onFilterChange }) {
     const [user, setUser] = useState(null);
     const [favorites, setFavorites] = useState([]);
+    const [suggestions, setSuggestions] = useState([]);
+    const [searchHistory, setSearchHistory] = useState([]);
+    const [showSuggest, setShowSuggest] = useState(false);
+    const [debounceTimer, setDebounceTimer] = useState(null);
     const [showLocationModal, setShowLocationModal] = useState(false);
     const [provinces, setProvinces] = useState([]);
     const [districts, setDistricts] = useState([]);
@@ -60,9 +66,19 @@ export default function Home({ onFilterChange }) {
         }
         const favs = JSON.parse(localStorage.getItem('favorites')) || [];
         setFavorites(favs);
+        const history = JSON.parse(localStorage.getItem('searchHistory')) || [];
+        setSearchHistory(history);
         // Load provinces on component mount
         fetchProvinces();
     }, []);
+
+    useEffect(() => {
+        return () => {
+            if (debounceTimer) {
+                clearTimeout(debounceTimer);
+            }
+        };
+    }, [debounceTimer]);
 
     const fetchProvinces = async () => {
         try {
@@ -242,9 +258,86 @@ export default function Home({ onFilterChange }) {
 
         const categoryValue = categoryMap[categoryLabel];
         if (categoryValue) {
+            setShowSuggest(false);
+            if (!user) {
+                navigate(`/?category=${categoryValue}`);
+                return;
+            }
+
             setSelectedCategory(categoryValue);
             setSearchQuery('');
         }
+    };
+
+    const handleSearchChange = (e) => {
+        const value = e.target.value;
+        setSearchQuery(value);
+
+        if (!value.trim()) {
+            setSuggestions([]);
+            setShowSuggest(false);
+        }
+
+        if (debounceTimer) {
+            clearTimeout(debounceTimer);
+        }
+
+        const timer = setTimeout(async () => {
+            if (!value.trim()) {
+                setSuggestions([]);
+                setShowSuggest(false);
+                return;
+            }
+
+            try {
+                const res = await fetch('http://localhost:5000/api/products');
+                const data = await res.json();
+
+                const filtered = data.filter(product =>
+                    product.title.toLowerCase().includes(value.toLowerCase())
+                );
+
+                setSuggestions(filtered.slice(0, 5));
+                setShowSuggest(true);
+            } catch (error) {
+                console.error('Error fetching search suggestions:', error);
+            }
+        }, 300);
+
+        setDebounceTimer(timer);
+    };
+
+    const runSearch = (query) => {
+        const trimmedQuery = query.trim();
+
+        if (!trimmedQuery) {
+            setShowSuggest(false);
+            if (!user) {
+                navigate('/');
+            }
+            return;
+        }
+
+        const history = JSON.parse(localStorage.getItem('searchHistory')) || [];
+        const newHistory = [trimmedQuery, ...history.filter(item => item !== trimmedQuery)].slice(0, 5);
+
+        localStorage.setItem('searchHistory', JSON.stringify(newHistory));
+        setSearchHistory(newHistory);
+        setSearchQuery(trimmedQuery);
+        setSelectedCategory('');
+        setShowSuggest(false);
+
+        if (!user) {
+            navigate(`/?search=${encodeURIComponent(trimmedQuery)}`);
+        }
+    };
+
+    const handleSearchKeyDown = (e) => {
+        if (e.key !== 'Enter') {
+            return;
+        }
+
+        runSearch(searchQuery);
     };
 
     return (
@@ -271,10 +364,46 @@ export default function Home({ onFilterChange }) {
                                     type="text"
                                     placeholder="Bạn tìm gì..."
                                     value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    onChange={handleSearchChange}
+                                    onKeyDown={handleSearchKeyDown}
                                     className="w-full px-2 py-1 text-sm outline-none bg-transparent"
                                 />
                             </div>
+
+                            {showSuggest && (
+                                <div className="absolute top-12 left-0 w-full bg-white shadow-lg rounded-md z-50">
+                                    {suggestions.map(item => (
+                                        <div
+                                            key={item.id}
+                                            onClick={() => {
+                                                setShowSuggest(false);
+                                                navigate(`/product/${item.id}`);
+                                            }}
+                                            className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                                        >
+                                            {item.title}
+                                        </div>
+                                    ))}
+
+                                    {searchHistory.length > 0 && (
+                                        <>
+                                            <div className="px-3 py-2 text-xs text-gray-400">
+                                                Tìm kiếm gần đây
+                                            </div>
+
+                                            {searchHistory.map((item, index) => (
+                                                <div
+                                                    key={index}
+                                                    onClick={() => runSearch(item)}
+                                                    className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                                                >
+                                                    {item}
+                                                </div>
+                                            ))}
+                                        </>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -310,7 +439,7 @@ export default function Home({ onFilterChange }) {
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <img
-                                        src={user.avatar || 'https://i.pravatar.cc/40'}
+                                        src={user.avatar || DEFAULT_AVATAR}
                                         alt="avatar"
                                         className="w-8 h-8 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-300"
                                         onClick={() => navigate('/profile')}
@@ -339,9 +468,11 @@ export default function Home({ onFilterChange }) {
                             <FaShoppingCart />
                             <span>Giỏ ({getTotalItems()})</span>
                         </div>
-                        <Link to="/support" className="text-sm font-semibold text-gray-900">
-                            Hỗ trợ
-                        </Link>
+                        {user && (
+                            <Link to="/support" className="text-sm font-semibold text-gray-900">
+                                Hỗ trợ
+                            </Link>
+                        )}
                         {user && (
                             <button
                                 onClick={handleLogout}
@@ -485,7 +616,7 @@ export default function Home({ onFilterChange }) {
             )}
 
             {/* Hiển thị kết quả lọc */}
-            {(searchQuery || selectedCategory) ? (
+            {user && (searchQuery || selectedCategory) ? (
                 <div className="w-full max-w-[1280px] mx-auto px-4 py-6">
                     <CartPage
                         searchQuery={searchQuery}
