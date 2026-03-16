@@ -7,7 +7,7 @@ import { ChevronDownIcon, PhoneIcon, PlayCircleIcon } from '@heroicons/react/20/
 import Notifications from './Notifications';
 import CartPage from './CartPage';
 
-import {
+import {        
     FaUser,
     FaShoppingCart,
     FaMapMarkerAlt,
@@ -261,7 +261,7 @@ export default function Home({ onFilterChange }) {
                             onClick={() => {
                                 setSearchQuery('');
                                 setSelectedCategory('');
-                                navigate('/home');
+                                navigate(user ? '/home' : '/');
                             }}
                         />
                         <div className="relative flex-1">

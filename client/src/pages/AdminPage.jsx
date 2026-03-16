@@ -36,12 +36,12 @@ const AdminPage = () => {
     const closePopup = () => setPopup({ ...popup, show: false });
 
     const categories = [
-        { value: 'phone', label: '📱 Điện thoại' },
-        { value: 'laptop', label: '💻 Laptop' },
-        { value: 'accessory', label: '🎧 Phụ kiện' },
-        { value: 'smartwatch', label: '⌚ Smartwatch' },
-        { value: 'watch', label: '⏰ Đồng hồ' },
-        { value: 'tablet', label: '📱 Tablet' },
+        { value: 'phone', label: ' Điện thoại' },
+        { value: 'laptop', label: ' Laptop' },
+        { value: 'accessory', label: ' Phụ kiện' },
+        { value: 'smartwatch', label: ' Smartwatch' },
+        { value: 'watch', label: ' Đồng hồ' },
+        { value: 'tablet', label: ' Tablet' },
     ];
 
     const handleLogout = () => {
@@ -78,11 +78,11 @@ const AdminPage = () => {
             if (editingProduct) {
                 const id = editingProduct.id || editingProduct._id;
                 await axios.put(`http://localhost:5000/api/products/${id}`, formData);
-                showPopup('✅ Cập nhật sản phẩm thành công!', 'success');
+                showPopup(' Cập nhật sản phẩm thành công!', 'success');
                 setEditingProduct(null);
             } else {
                 await axios.post('http://localhost:5000/api/products', formData);
-                showPopup('✅ Thêm sản phẩm thành công!', 'success');
+                showPopup(' Thêm sản phẩm thành công!', 'success');
             }
 
             setForm({
@@ -97,8 +97,8 @@ const AdminPage = () => {
             setPreview('');
             fetchProducts();
         } catch (error) {
-            console.error('❌ Lỗi khi thêm/sửa sản phẩm:', error);
-            showPopup('❌ Lỗi khi thêm/sửa sản phẩm!', 'error');
+            console.error(' Lỗi khi thêm/sửa sản phẩm:', error);
+            showPopup(' Lỗi khi thêm/sửa sản phẩm!', 'error');
         }
     };
 
@@ -107,10 +107,10 @@ const AdminPage = () => {
             try {
                 await axios.delete(`http://localhost:5000/api/products/${id}`);
                 fetchProducts();
-                showPopup('🗑️ Đã xoá sản phẩm thành công!', 'success');
+                showPopup(' Đã xoá sản phẩm thành công!', 'success');
             } catch (error) {
                 console.error('Lỗi khi xoá sản phẩm:', error);
-                showPopup('❌ Lỗi khi xoá sản phẩm!', 'error');
+                showPopup(' Lỗi khi xoá sản phẩm!', 'error');
             }
         }
     };
@@ -307,7 +307,7 @@ const AdminPage = () => {
                             type="submit"
                             className="col-span-1 md:col-span-2 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
                         >
-                            {editingProduct ? 'Cập nhật sản phẩm' : '➕ Thêm sản phẩm'}
+                            {editingProduct ? 'Cập nhật sản phẩm' : ' Thêm sản phẩm'}
                         </button>
                     </form>
 
@@ -334,7 +334,7 @@ const AdminPage = () => {
                                     <p className="text-sm text-gray-500">
                                         Giá gốc: {formatDisplayPrice(item.originalprice)}₫
                                     </p>
-                                    <p className="text-sm text-gray-500">Giảm: {item.discount}%</p>
+                                    <p className="text-sm text-gray-500">Giảm: {Number(item.discount)}%</p>
                                     <p className="text-sm text-gray-500">
                                         Loại: {categories.find((c) => c.value === item.category)?.label || 'Không xác định'}
                                     </p>

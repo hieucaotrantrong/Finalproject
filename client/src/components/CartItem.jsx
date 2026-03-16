@@ -77,7 +77,7 @@ const CartItem = ({ id, image, title, originalprice, price, discount }) => {
 
                 {/* Giữ nguyên text-orange-500 text-xs font-medium */}
                 <div className="text-orange-500 text-xs font-medium mb-1">
-                    Giảm giá {discount}.000₫
+                Giảm giá {Number(discount)}%
                 </div>
 
                 {/* Giữ nguyên text-xs text-gray-600 */}
