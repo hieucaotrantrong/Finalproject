@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { FaHeart } from "react-icons/fa";
@@ -23,6 +23,7 @@ export default function Home({ onFilterChange }) {
     const [suggestions, setSuggestions] = useState([]);
     const [searchHistory, setSearchHistory] = useState([]);
     const [showSuggest, setShowSuggest] = useState(false);
+    const [activeIndex, setActiveIndex] = useState(-1);
     const [debounceTimer, setDebounceTimer] = useState(null);
     const [showLocationModal, setShowLocationModal] = useState(false);
     const [provinces, setProvinces] = useState([]);
@@ -37,6 +38,7 @@ export default function Home({ onFilterChange }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('');
     const navigate = useNavigate();
+    const searchRef = useRef(null);
     const { cartItems, getTotalItems, getTotalPrice, updateQuantity, removeFromCart, isCartOpen, setIsCartOpen } = useCart();
 
     const formatPrice = (price) => {
@@ -79,6 +81,21 @@ export default function Home({ onFilterChange }) {
             }
         };
     }, [debounceTimer]);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (searchRef.current && !searchRef.current.contains(event.target)) {
+                setShowSuggest(false);
+                setActiveIndex(-1);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, []);
 
     const fetchProvinces = async () => {
         try {
@@ -259,6 +276,7 @@ export default function Home({ onFilterChange }) {
         const categoryValue = categoryMap[categoryLabel];
         if (categoryValue) {
             setShowSuggest(false);
+            setActiveIndex(-1);
             if (!user) {
                 navigate(`/?category=${categoryValue}`);
                 return;
@@ -272,10 +290,12 @@ export default function Home({ onFilterChange }) {
     const handleSearchChange = (e) => {
         const value = e.target.value;
         setSearchQuery(value);
+        setActiveIndex(-1);
 
         if (!value.trim()) {
             setSuggestions([]);
             setShowSuggest(false);
+            setSelectedCategory('');
         }
 
         if (debounceTimer) {
@@ -312,6 +332,8 @@ export default function Home({ onFilterChange }) {
 
         if (!trimmedQuery) {
             setShowSuggest(false);
+            setActiveIndex(-1);
+            setSelectedCategory('');
             if (!user) {
                 navigate('/');
             }
@@ -326,6 +348,7 @@ export default function Home({ onFilterChange }) {
         setSearchQuery(trimmedQuery);
         setSelectedCategory('');
         setShowSuggest(false);
+        setActiveIndex(-1);
 
         if (!user) {
             navigate(`/?search=${encodeURIComponent(trimmedQuery)}`);
@@ -333,7 +356,50 @@ export default function Home({ onFilterChange }) {
     };
 
     const handleSearchKeyDown = (e) => {
+        if (e.key === 'Escape') {
+            setShowSuggest(false);
+            setActiveIndex(-1);
+            return;
+        }
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setActiveIndex(prev =>
+                prev < suggestions.length + searchHistory.length - 1 ? prev + 1 : prev
+            );
+            return;
+        }
+
+        if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setActiveIndex(prev => (prev > 0 ? prev - 1 : 0));
+            return;
+        }
+
         if (e.key !== 'Enter') {
+            return;
+        }
+
+        if (activeIndex >= 0) {
+            const allItems = [
+                ...suggestions.map(item => ({ type: 'product', data: item })),
+                ...searchHistory.map(item => ({ type: 'history', data: item }))
+            ];
+
+            const selected = allItems[activeIndex];
+            setShowSuggest(false);
+            setActiveIndex(-1);
+
+            if (!selected) {
+                return;
+            }
+
+            if (selected.type === 'product') {
+                navigate(`/product/${selected.data.id}`);
+                return;
+            }
+
+            runSearch(selected.data);
             return;
         }
 
@@ -357,7 +423,7 @@ export default function Home({ onFilterChange }) {
                                 navigate(user ? '/home' : '/');
                             }}
                         />
-                        <div className="relative flex-1">
+                        <div ref={searchRef} className="relative flex-1">
                             <div className="flex items-center bg-white rounded-full px-4 py-2">
                                 <FaSearch className="text-gray-500 text-sm mr-3" />
                                 <input
@@ -372,14 +438,17 @@ export default function Home({ onFilterChange }) {
 
                             {showSuggest && (
                                 <div className="absolute top-12 left-0 w-full bg-white shadow-lg rounded-md z-50">
-                                    {suggestions.map(item => (
+                                    {suggestions.map((item, index) => (
                                         <div
                                             key={item.id}
                                             onClick={() => {
                                                 setShowSuggest(false);
+                                                setActiveIndex(-1);
                                                 navigate(`/product/${item.id}`);
                                             }}
-                                            className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                                            className={`px-3 py-2 cursor-pointer text-sm ${
+                                                activeIndex === index ? 'bg-gray-200' : 'hover:bg-gray-100'
+                                            }`}
                                         >
                                             {item.title}
                                         </div>
@@ -395,7 +464,9 @@ export default function Home({ onFilterChange }) {
                                                 <div
                                                     key={index}
                                                     onClick={() => runSearch(item)}
-                                                    className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                                                    className={`px-3 py-2 cursor-pointer text-sm ${
+                                                        activeIndex === suggestions.length + index ? 'bg-gray-200' : 'hover:bg-gray-100'
+                                                    }`}
                                                 >
                                                     {item}
                                                 </div>

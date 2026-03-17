@@ -5,6 +5,7 @@ export default function CategoryGrid() {
 
     const [products, setProducts] = useState([]);
     const [activeTab, setActiveTab] = useState('all');
+    const [showAll, setShowAll] = useState(false);
 
     useEffect(() => {
 
@@ -12,10 +13,7 @@ export default function CategoryGrid() {
             .then(res => res.json())
             .then(data => {
 
-                const randomProducts = [...data]
-                    .sort(() => Math.random() - 0.5)
-                    .slice(0, 6);
-
+                const randomProducts = [...data].sort(() => Math.random() - 0.5);
                 setProducts(randomProducts);
 
             })
@@ -36,7 +34,8 @@ export default function CategoryGrid() {
         ? products
         : products.filter((product) => product.category === activeTab);
 
-    const displayedProducts = filteredProducts.slice(0, 6);
+    const firstProducts = filteredProducts.slice(0, 6);
+    const moreProducts = filteredProducts.slice(6);
 
     return (
 
@@ -76,7 +75,10 @@ export default function CategoryGrid() {
 
                                 <button
                                     key={index}
-                                    onClick={() => setActiveTab(tab.value)}
+                                    onClick={() => {
+                                        setActiveTab(tab.value)
+                                        setShowAll(false)
+                                    }}
                                     className={`px-4 py-2 text-sm font-medium ${
                                         activeTab === tab.value
                                             ? 'text-blue-600 border-b-2 border-blue-600'
@@ -108,11 +110,10 @@ export default function CategoryGrid() {
 
                 </div>
 
-                {/* Product Slider */}
-
+                {/* 6 sản phẩm đầu (slider ngang) */}
                 <div className="flex overflow-x-auto gap-4 pb-2 scrollbar-hide">
 
-                    {displayedProducts.map((product) => (
+                    {firstProducts.map((product) => (
                         <CartItem
                             key={product.id}
                             id={product.id}
@@ -126,10 +127,47 @@ export default function CategoryGrid() {
 
                 </div>
 
+                {/* Sản phẩm mở rộng */}
+                {showAll && (
+
+                    <div className="grid grid-cols-6 gap-4 mt-4 transition-all duration-500">
+
+                        {moreProducts.map((product) => (
+                            <CartItem
+                                key={product.id}
+                                id={product.id}
+                                image={product.image}
+                                title={product.title}
+                                originalprice={product.originalprice}
+                                price={product.price}
+                                discount={product.discount}
+                            />
+                        ))}
+
+                    </div>
+
+                )}
+
+                {/* Button */}
+                <div className="flex justify-center mt-4">
+
+                    {filteredProducts.length > 6 && (
+
+                        <button
+                            onClick={() => setShowAll(!showAll)}
+                            className="px-6 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-yellow-600 font-medium transition"
+                        >
+                            {showAll ? "Thu gọn sản phẩm <" : "Xem thêm sản phẩm >"}
+                        </button>
+
+                    )}
+
+                </div>
+
             </div>
 
         </div>
 
     );
-    
+
 }
