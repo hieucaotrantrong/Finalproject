@@ -5,7 +5,7 @@ import Header from '../components/Header';
 import Footers from '../components/Footers';
 import Carousel from '../components/Carousel';
 import { GoogleLogin } from '@react-oauth/google';
-
+import { Link } from "react-router-dom";
 export default function Login() {
 
     const [email, setEmail] = useState('');
@@ -219,9 +219,12 @@ export default function Login() {
 
                                 <div className="text-center sm:text-left whitespace-nowrap">
 
-                                    <button className="transition duration-200 mx-5 px-5 py-4 cursor-pointer font-normal text-sm rounded-lg text-gray-500 hover:bg-gray-100">
-                                        Forgot Password
-                                    </button>
+                                 <Link
+  to="/forgot-password"
+  className="transition duration-200 mx-5 px-5 py-4 cursor-pointer font-normal text-sm rounded-lg text-gray-500 hover:bg-gray-100"
+>
+  Forgot Password
+</Link>
 
                                 </div>
 

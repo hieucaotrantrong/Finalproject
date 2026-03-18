@@ -24,7 +24,8 @@ import WalletPage from './components/WalletPage';
 import OrderHistory from './components/OrderHistory';
 import { useState } from 'react';
 import SocialLogin from "./components/SocialLogin";
-/* 🆕 Thêm import trang yêu thích */
+import ForgotPassword from "./components/ForgotPassword";
+
 import FavoritePage from './pages/FavoritePage';
 
 /*----------------------------------
@@ -123,6 +124,7 @@ function App() {
           <Route path="/social-login" element={<SocialLogin />} />
           {/* 🆕 Trang yêu thích */}
           <Route path="/favorites" element={<FavoritePage />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
 
           {/* Admin (Private Route) */}
         <Route
