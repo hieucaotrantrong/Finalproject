@@ -26,11 +26,26 @@ export const forgotPassword = async (req: Request, res: Response) => {
   try {
 
     await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: "Đặt lại mật khẩu - TdddWebsite",
-      text: `Mã OTP của bạn là: ${otp}`
-    });
+    from: process.env.EMAIL_USER,
+    to: email,
+    subject: "Đặt lại mật khẩu - TdddWebsite",
+    text: `
+TdddWebsite
+
+Xin chào,
+
+Chúng tôi đã nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn.
+
+Mã xác thực (OTP) của bạn là: ${otp}
+
+Mã này sẽ hết hạn sau 1 phút. Vui lòng không chia sẻ mã này với bất kỳ ai.
+
+Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email này để đảm bảo an toàn cho tài khoản.
+
+Trân trọng,
+Đội ngũ TdddWebsite
+`
+  });
 
     res.json({ message: "OTP đã gửi về email" });
 
@@ -47,7 +62,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
 };
 
 
-// 2️⃣ verify OTP
+// 2️ verify OTP
 export const verifyOTP = (req: Request, res: Response) => {
 
   const { email, otp } = req.body;
