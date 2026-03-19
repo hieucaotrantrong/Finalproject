@@ -145,8 +145,9 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
             return;
         }
 
+        // 🔥 LẤY FULL ORDER (thêm quantity + product_id + status)
         const orderResult = await pool.query(
-            `SELECT id, email, product_title FROM orders WHERE id = $1`,
+            `SELECT * FROM orders WHERE id = $1`,
             [id]
         );
 
@@ -157,11 +158,29 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
 
         const order = orderResult.rows[0];
 
+        // 🚨 TRÁNH CỘNG LẠI
+        if (order.status === "completed") {
+            res.json({ message: "Đơn đã hoàn tất trước đó" });
+            return;
+        }
+
+        // 🚀 CỘNG SOLD KHI HOÀN TẤT
+        if (status === "completed") {
+            await pool.query(
+                `UPDATE products 
+                 SET sold = sold + $1 
+                 WHERE id = $2`,
+                [order.quantity, order.product_id]
+            );
+        }
+
+        // ✅ UPDATE STATUS
         await pool.query(
             `UPDATE orders SET status = $1 WHERE id = $2`,
             [status, id]
         );
 
+        // 🔔 NOTIFICATION (giữ nguyên của bạn)
         await pool.query(
             `INSERT INTO notifications (user_email, title, message, is_read)
              VALUES ($1, $2, $3, FALSE)`,
@@ -183,7 +202,6 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
         res.status(500).json({ error: "Lỗi server" });
     }
 };
-
 
 /*-----------------------------------------
   Get user orders

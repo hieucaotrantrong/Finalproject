@@ -9,7 +9,12 @@ const Notifications = () => {
 
     const fetchNotifications = async () => {
         try {
-            const userEmail = localStorage.getItem('userEmail');
+            const userEmail =
+                localStorage.getItem('userEmail') ||
+                JSON.parse(localStorage.getItem('user') || '{}')?.email;
+
+            if (!userEmail) return;
+
             const response = await axios.get(`http://localhost:5000/api/notifications/${userEmail}`);
 
             const newNotifications = response.data;

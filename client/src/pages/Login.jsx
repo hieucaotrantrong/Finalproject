@@ -161,6 +161,7 @@ export default function Login() {
 
                                                     localStorage.setItem("token", token);
                                                     localStorage.setItem("user", JSON.stringify(user));
+                                                    localStorage.setItem("userEmail", user.email);
 
                                                     // ===== thêm redirect =====
                                                     const redirect = location.state?.redirect;
@@ -169,7 +170,7 @@ export default function Login() {
                                                     if (redirect === "/cartpay" && product) {
                                                         navigate("/cartpay", { state: product });
                                                     }
-                                                    else if (user.role === "admin") {
+                                                    else if ((user?.role || "").toLowerCase() === "admin") {
                                                         navigate("/admin");
                                                     }
                                                     else {

@@ -15,6 +15,10 @@ function SocialLogin() {
 
       localStorage.setItem("user", JSON.stringify(user));
 
+      if (user?.email) {
+        localStorage.setItem("userEmail", user.email);
+      }
+
       window.location.href = "/home";
 
     } else {

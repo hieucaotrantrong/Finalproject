@@ -5,7 +5,7 @@ export default function PromoBanner() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [banners, setBanners] = useState([]);
 
-  /* lấy banner từ backend */
+
   useEffect(() => {
     fetch("http://localhost:5000/api/banners")
       .then((res) => res.json())

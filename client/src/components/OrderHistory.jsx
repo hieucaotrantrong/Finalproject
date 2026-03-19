@@ -43,7 +43,9 @@ const OrderHistory = () => {
     const fetchUserOrders = async () => {
         try {
             const token = localStorage.getItem('token');
-            const userEmail = localStorage.getItem('userEmail');
+            const userEmail =
+                localStorage.getItem('userEmail') ||
+                JSON.parse(localStorage.getItem('user') || '{}')?.email;
 
             if (!token || !userEmail) {
                 setError('Vui lòng đăng nhập để xem lịch sử đơn hàng');

@@ -22,6 +22,20 @@ const CartPayPage = () => {
         if (savedAddress) {
             setAddress(savedAddress);
         }
+
+        const savedUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const savedEmail = localStorage.getItem('userEmail') || savedUser?.email || '';
+        const savedName = [savedUser?.first_name, savedUser?.last_name].filter(Boolean).join(' ').trim();
+
+        if (savedEmail) {
+            setEmail(savedEmail);
+            localStorage.setItem('userEmail', savedEmail);
+        }
+
+        if (savedName) {
+            setFullName(savedName);
+        }
+
         fetchWalletInfo();
     }, []);
 
