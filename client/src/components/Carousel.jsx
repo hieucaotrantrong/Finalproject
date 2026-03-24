@@ -1,5 +1,10 @@
 import React, { useEffect, useState } from "react";
 
+const SIDE_PREFIX = "side::";
+
+const isSideBanner = (imageUrl = "") => imageUrl.startsWith(SIDE_PREFIX);
+const toDisplayImageUrl = (imageUrl = "") => imageUrl.replace(SIDE_PREFIX, "");
+
 export default function Carousel() {
   const [banners, setBanners] = useState([]);
   const [current, setCurrent] = useState(0);
@@ -7,9 +12,27 @@ export default function Carousel() {
   useEffect(() => {
     fetch("http://localhost:5000/api/banners")
       .then((res) => res.json())
-      .then((data) => setBanners(data || []))
+      .then((data) => {
+        const filtered = (data || []).filter((item) => !isSideBanner(item.image_url));
+        setBanners(filtered);
+      })
       .catch(() => setBanners([]));
   }, []);
+
+  const resolveBannerSrc = (imageUrl) => {
+    const cleanImageUrl = toDisplayImageUrl(imageUrl);
+    if (!cleanImageUrl) return "";
+
+    if (
+      cleanImageUrl.startsWith("http://") ||
+      cleanImageUrl.startsWith("https://") ||
+      cleanImageUrl.startsWith("/")
+    ) {
+      return cleanImageUrl;
+    }
+
+    return `/assets/${cleanImageUrl}`;
+  };
 
 
   useEffect(() => {
@@ -33,7 +56,7 @@ export default function Carousel() {
           {banners.map((banner, index) => (
             <img
               key={banner.id ?? index}
-              src={`/assets/${banner.image_url}`}
+              src={resolveBannerSrc(banner.image_url)}
               alt={`banner-${index + 1}`}
               className="w-full h-64 object-cover flex-shrink-0"
             />

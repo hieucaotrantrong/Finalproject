@@ -27,16 +27,31 @@ export const getProductById = async (req: Request, res: Response): Promise<void>
     const { id } = req.params;
 
     try {
+        // 1. lấy product
         const result = await pool.query(
             'SELECT * FROM products WHERE id = $1',
             [id]
         );
 
-        if (result.rows.length > 0) {
-            res.json(result.rows[0]);
-        } else {
+        if (result.rows.length === 0) {
             res.status(404).json({ error: 'Sản phẩm không tồn tại' });
+            return;
         }
+
+        const product = result.rows[0];
+
+        // 2. lấy danh sách ảnh
+        const imageResult = await pool.query(
+            'SELECT image_url FROM product_images WHERE product_id = $1',
+            [id]
+        );
+
+        // 3. gộp images vào product
+        product.images = imageResult.rows.map((img: any) => img.image_url);
+
+        // 4. trả về
+        res.json(product);
+
     } catch (err) {
         console.error('Lỗi khi lấy sản phẩm:', err);
         res.status(500).json({ error: 'Lỗi khi lấy sản phẩm' });
@@ -47,11 +62,12 @@ export const getProductById = async (req: Request, res: Response): Promise<void>
 Create product
 -----------------------------------*/
 export const createProduct = async (req: Request, res: Response): Promise<void> => {
-    const { title, originalprice, price, discount, tag, image, category } = req.body;
+    const { title, originalprice, price, discount, tag, image, category, images } = req.body;
 
     console.log('Received data:', req.body);
 
     try {
+        // 1. thêm product
         const result = await pool.query(
             `INSERT INTO products (title, originalprice, price, discount, tag, image, category)
              VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -59,7 +75,21 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
             [title, originalprice, price, discount, tag, image, category]
         );
 
-        res.status(201).json(result.rows[0]);
+        const newProduct = result.rows[0];
+
+        // 2. thêm nhiều ảnh vào bảng product_images
+        if (images && images.length > 0) {
+            for (const img of images) {
+                await pool.query(
+                    `INSERT INTO product_images (product_id, image_url)
+                     VALUES ($1, $2)`,
+                    [newProduct.id, img]
+                );
+            }
+        }
+
+        res.status(201).json(newProduct);
+
     } catch (err) {
         console.error('Database error:', err);
         res.status(500).json({ error: 'Lỗi khi thêm sản phẩm' });
@@ -71,7 +101,7 @@ Update product
 -----------------------------------*/
 export const updateProduct = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
-    const { title, originalprice, price, discount, tag, image, category } = req.body;
+    const { title, originalprice, price, discount, tag, image, category, images } = req.body;
 
     console.log('Update product ID:', id);
     console.log('Update data:', req.body);
@@ -89,6 +119,19 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
              WHERE id = $8`,
             [title, originalprice, price, discount, tag, image, category, id]
         );
+
+        if (Array.isArray(images)) {
+            await pool.query('DELETE FROM product_images WHERE product_id = $1', [id]);
+
+            for (const img of images) {
+                if (!img) continue;
+                await pool.query(
+                    `INSERT INTO product_images (product_id, image_url)
+                     VALUES ($1, $2)`,
+                    [id, img]
+                );
+            }
+        }
 
         console.log('Update result rowCount:', result.rowCount);
 

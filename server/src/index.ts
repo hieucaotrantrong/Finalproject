@@ -13,6 +13,7 @@ import adminRoutes from './routes/admin';
 import path from 'path';
 import bannerRouter from './routes/bannerRouter';
 import passwordRouter from "./routes/password.routes";
+import reviewRoutes from "./routes/reviewRoutes";
 /*------------------------------------
 Dotnev
 --------------------------------------*/
@@ -42,6 +43,7 @@ app.use('/api/wallet', walletRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/banners', bannerRouter);
 app.use("/api/password", passwordRouter);
+app.use('/api/reviews', reviewRoutes);
 /*------------------------------------
 Start Servers
 --------------------------------------*/

@@ -110,22 +110,21 @@ export default function CategoryGrid() {
 
                 </div>
 
-                {/* 6 sản phẩm đầu (slider ngang) */}
-                <div className="flex overflow-x-auto gap-4 pb-2 scrollbar-hide">
-
-                    {firstProducts.map((product) => (
-                        <CartItem
-                            key={product.id}
-                            id={product.id}
-                            image={product.image}
-                            title={product.title}
-                            originalprice={product.originalprice}
-                            price={product.price}
-                            discount={product.discount}
-                        />
-                    ))}
-
-                </div>
+              {/* 6 sản phẩm đầu - Thêm grid để cố định kích thước khi ít sản phẩm */}
+<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 pb-2">
+    {firstProducts.map((product) => (
+        <CartItem
+            key={product.id}
+            id={product.id}
+            image={product.image}
+            title={product.title}
+            originalprice={product.originalprice}
+            price={product.price}
+            discount={product.discount}
+            sold={product.sold} // Đừng quên truyền sold nếu CartItem cần nhé
+        />
+    ))}
+</div>
 
                 {/* Sản phẩm mở rộng */}
                 {showAll && (

@@ -1,9 +1,19 @@
 import React, { useEffect, useState } from "react";
 
+const SIDE_PREFIX = "side::";
+
+const isSideBanner = (imageUrl = "") => imageUrl.startsWith(SIDE_PREFIX);
+const toStoredImageUrl = (imageUrl = "", type = "carousel") => {
+  const cleaned = imageUrl.replace(SIDE_PREFIX, "");
+  return type === "side" ? `${SIDE_PREFIX}${cleaned}` : cleaned;
+};
+const toDisplayImageUrl = (imageUrl = "") => imageUrl.replace(SIDE_PREFIX, "");
+
 export default function AdminBanner() {
 
   const [banners, setBanners] = useState([]);
   const [image, setImage] = useState("");
+  const [bannerType, setBannerType] = useState("carousel");
   const [editingId, setEditingId] = useState(null);
 
   const API = "http://localhost:5000/api/banners";
@@ -30,11 +40,12 @@ export default function AdminBanner() {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        image_url: image
+        image_url: toStoredImageUrl(image, bannerType)
       })
     });
 
     setImage("");
+    setBannerType("carousel");
     fetchBanners();
   };
 
@@ -51,7 +62,8 @@ export default function AdminBanner() {
   /* Edit */
   const startEdit = (banner) => {
     setEditingId(banner.id);
-    setImage(banner.image_url);
+    setImage(toDisplayImageUrl(banner.image_url));
+    setBannerType(isSideBanner(banner.image_url) ? "side" : "carousel");
   };
 
   /* Update */
@@ -63,13 +75,29 @@ export default function AdminBanner() {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        image_url: image
+        image_url: toStoredImageUrl(image, bannerType)
       })
     });
 
     setEditingId(null);
     setImage("");
+    setBannerType("carousel");
     fetchBanners();
+  };
+
+  const resolveBannerSrc = (imageUrl) => {
+    const cleanImageUrl = toDisplayImageUrl(imageUrl);
+    if (!cleanImageUrl) return "";
+
+    if (
+      cleanImageUrl.startsWith("http://") ||
+      cleanImageUrl.startsWith("https://") ||
+      cleanImageUrl.startsWith("/")
+    ) {
+      return cleanImageUrl;
+    }
+
+    return `/assets/${cleanImageUrl}`;
   };
 
   return (
@@ -84,7 +112,7 @@ export default function AdminBanner() {
         {editingId ? "Sửa Banner" : "Thêm Banner"}
       </div>
 
-      <div className="flex gap-4 mb-8">
+      <div className="flex gap-4 mb-8 items-center flex-wrap">
 
         <input
           type="file"
@@ -95,6 +123,15 @@ export default function AdminBanner() {
           }}
           className="border p-2"
         />
+
+        <select
+          value={bannerType}
+          onChange={(e) => setBannerType(e.target.value)}
+          className="border p-2 rounded"
+        >
+          <option value="carousel">Banner chính (slider)</option>
+          <option value="side">Banner ngang nhỏ (2 bên)</option>
+        </select>
 
         {editingId ? (
           <button
@@ -123,6 +160,7 @@ export default function AdminBanner() {
             <th className="p-3">ID</th>
             <th className="p-3">Banner</th>
             <th className="p-3">Tên ảnh</th>
+            <th className="p-3">Loại</th>
             <th className="p-3">Hành động</th>
           </tr>
 
@@ -138,13 +176,17 @@ export default function AdminBanner() {
 
               <td className="p-3">
                 <img
-                  src={`/assets/${banner.image_url}`}
+                  src={resolveBannerSrc(banner.image_url)}
                   className="h-16 mx-auto"
                 />
               </td>
 
               <td className="p-3">
-                {banner.image_url}
+                {toDisplayImageUrl(banner.image_url)}
+              </td>
+
+              <td className="p-3">
+                {isSideBanner(banner.image_url) ? "Banner ngang nhỏ" : "Banner chính"}
               </td>
 
               <td className="p-3">

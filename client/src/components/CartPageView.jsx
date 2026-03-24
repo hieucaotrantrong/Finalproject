@@ -191,7 +191,7 @@ const CartPageView = () => {
                                     <div className="flex justify-between">
                                         <span>Phí vận chuyển</span>
                                         <span className="text-green-600">
-                                            Miễn phí
+                                            Chưa bao gồm chi phí vận chuyển
                                         </span>
                                     </div>
 

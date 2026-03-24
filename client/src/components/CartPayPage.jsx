@@ -1,8 +1,78 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import axios from "axios";
 import Home from "./Home";
 import Footers from "./Footers";
+
+const STORE_REGION = "central";
+
+const REGION_LABELS = {
+    north: "Miền Bắc",
+    central: "Miền Trung",
+    south: "Miền Nam"
+};
+
+const SHIPPING_FEE_BY_REGION = {
+    north: 40000,
+    central: 20000,
+    south: 30000
+};
+
+const REGION_PROVINCE_CSV = {
+    north: "Lào Cai,Yên Bái,Điện Biên,Hòa Bình,Lai Châu,Sơn La,Hà Giang,Cao Bằng,Bắc Kạn,Lạng Sơn,Tuyên Quang,Thái Nguyên,Phú Thọ,Bắc Giang,Quảng Ninh,Hà Nội,Vĩnh Phúc,Bắc Ninh,Hải Dương,Hải Phòng,Hưng Yên,Hà Nam,Nam Định,Thái Bình,Ninh Bình",
+    central: "Thanh Hóa,Nghệ An,Hà Tĩnh,Quảng Bình,Quảng Trị,Thừa Thiên - Huế,Đà Nẵng,Quảng Nam,Quảng Ngãi,Bình Định,Phú Yên,Khánh Hòa,Ninh Thuận,Bình Thuận,Kon Tum,Gia Lai,Đắk Lắk,Đắk Nông,Lâm Đồng",
+    south: "TP. Hồ Chí Minh,Đồng Nai,Bà Rịa - Vũng Tàu,Bình Dương,Bình Phước,Tây Ninh,Cần Thơ,Long An,Tiền Giang,Bến Tre,Vĩnh Long,Trà Vinh,Hậu Giang,Sóc Trăng,Đồng Tháp,An Giang,Kiên Giang,Bạc Liêu,Cà Mau"
+};
+
+const normalizeProvince = (value = "") => {
+    return value
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/đ/g, "d")
+        .replace(/tp\.?/g, "thanh pho")
+    .replace(/thanh pho\s*ho\s*chi\s*minh/g, "ho chi minh")
+    .replace(/thanh pho\s*ha\s*noi/g, "ha noi")
+    .replace(/thanh pho/g, "")
+        .replace(/tinh/g, "")
+        .replace(/-/g, " ")
+    .replace(/\./g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+};
+
+const REGION_BY_PROVINCE = Object.entries(REGION_PROVINCE_CSV).reduce((acc, [region, csv]) => {
+    csv.split(",").forEach((name) => {
+        acc[normalizeProvince(name)] = region;
+    });
+    return acc;
+}, {});
+
+const detectRegionFromAddress = (address = "", provinces = []) => {
+    const normalizedAddress = normalizeProvince(address);
+    if (!normalizedAddress) return null;
+
+    const addressParts = normalizedAddress
+        .split(",")
+        .map((part) => part.trim())
+        .filter(Boolean);
+
+    const candidates = [
+        normalizedAddress,
+        ...addressParts,
+        ...addressParts.slice(-2).map((part) => part)
+    ];
+
+    const matchedProvince = provinces.find((province) => {
+        const provinceName = normalizeProvince(province.name || "");
+        return candidates.some((candidate) =>
+            candidate.includes(provinceName) || provinceName.includes(candidate)
+        );
+    });
+
+    if (!matchedProvince?.name) return null;
+    return REGION_BY_PROVINCE[normalizeProvince(matchedProvince.name)] || null;
+};
 
 const CartPayPage = () => {
     const location = useLocation();
@@ -15,12 +85,27 @@ const CartPayPage = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState("cod"); // "cod" hoặc "wallet"
     const [wallet, setWallet] = useState(null);
+    const [shippingFee, setShippingFee] = useState(0);
+    const [customerRegion, setCustomerRegion] = useState(null);
+    const [provinces, setProvinces] = useState([]);
+    const lastSyncedAddressRef = useRef("");
+
+    const syncAddressFromStorage = () => {
+        const latest = localStorage.getItem('userAddress') || '';
+        if (!latest || latest === lastSyncedAddressRef.current) {
+            return;
+        }
+
+        lastSyncedAddressRef.current = latest;
+        setAddress(latest);
+    };
 
     // Load địa chỉ từ localStorage nếu không có trong state
     useEffect(() => {
         const savedAddress = localStorage.getItem('userAddress');
         if (savedAddress) {
             setAddress(savedAddress);
+            lastSyncedAddressRef.current = savedAddress;
         }
 
         const savedUser = JSON.parse(localStorage.getItem('user') || '{}');
@@ -37,6 +122,29 @@ const CartPayPage = () => {
         }
 
         fetchWalletInfo();
+
+        axios.get('https://provinces.open-api.vn/api/p/')
+            .then((response) => {
+                setProvinces(response.data || []);
+            })
+            .catch(() => setProvinces([]));
+    }, []);
+
+    useEffect(() => {
+        const interval = setInterval(syncAddressFromStorage, 600);
+
+        const handleFocus = () => {
+            syncAddressFromStorage();
+        };
+
+        window.addEventListener('focus', handleFocus);
+        document.addEventListener('visibilitychange', handleFocus);
+
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('focus', handleFocus);
+            document.removeEventListener('visibilitychange', handleFocus);
+        };
     }, []);
 
     const fetchWalletInfo = async () => {
@@ -62,6 +170,16 @@ const CartPayPage = () => {
         return isMultipleItems ? totalPrice : product?.price;
     };
 
+    const getGrandTotal = () => {
+        return getTotalAmount() + shippingFee;
+    };
+
+    useEffect(() => {
+        const region = detectRegionFromAddress(address, provinces);
+        setCustomerRegion(region);
+        setShippingFee(region ? SHIPPING_FEE_BY_REGION[region] || 0 : 0);
+    }, [address, provinces]);
+
     const handleOrder = async () => {
         if (!fullName || !phone || !address || !email) {
             alert("Vui lòng điền đầy đủ thông tin.");
@@ -82,7 +200,7 @@ const CartPayPage = () => {
 
         // Kiểm tra số dư ví nếu chọn thanh toán bằng ví
         if (paymentMethod === "wallet") {
-            const totalAmount = getTotalAmount();
+            const totalAmount = getGrandTotal();
             if (!wallet || wallet.balance < totalAmount) {
                 alert("Số dư ví không đủ để thanh toán. Vui lòng nạp thêm tiền hoặc chọn thanh toán khi nhận hàng.");
                 return;
@@ -106,7 +224,10 @@ const CartPayPage = () => {
                         productTitle: item.title,
                         productPrice: item.price,
                         quantity: item.quantity,
-                        paymentMethod
+                        paymentMethod,
+                        shippingFee,
+                        shippingRegion: customerRegion,
+                        storeRegion: STORE_REGION
                     }, {
                         headers: {
                             'Authorization': `Bearer ${token}` // Thêm header
@@ -123,7 +244,10 @@ const CartPayPage = () => {
                     productId: product.id,
                     productTitle: product.title,
                     productPrice: product.price,
-                    paymentMethod
+                    paymentMethod,
+                    shippingFee,
+                    shippingRegion: customerRegion,
+                    storeRegion: STORE_REGION
                 }, {
                     headers: {
                         'Authorization': `Bearer ${token}` // Thêm header
@@ -335,16 +459,27 @@ const CartPayPage = () => {
 
                             {/* Tổng thanh toán */}
                             <div className="bg-gray-50 rounded-lg p-4">
+                                <div className="flex justify-between items-center mb-2">
+                                    <span className="text-base text-gray-700">Tạm tính hàng:</span>
+                                    <span className="font-semibold">{formatPrice(getTotalAmount())}₫</span>
+                                </div>
+                                <div className="flex justify-between items-center mb-2">
+                                    <span className="text-base text-gray-700">Phí vận chuyển:</span>
+                                    <span className="font-semibold text-orange-600">{formatPrice(shippingFee)}₫</span>
+                                </div>
+                                <div className="text-sm text-gray-600 mb-3">
+                                    Kho gửi: {REGION_LABELS[STORE_REGION]} | Khu vực nhận: {customerRegion ? REGION_LABELS[customerRegion] : "Chưa xác định tỉnh/thành"}
+                                </div>
                                 <div className="flex justify-between items-center">
                                     <span className="text-lg font-semibold">Tổng thanh toán:</span>
                                     <span className="text-2xl font-bold text-red-600">
-                                        {formatPrice(getTotalAmount())}₫
+                                        {formatPrice(getGrandTotal())}₫
                                     </span>
                                 </div>
-                                {paymentMethod === "wallet" && wallet && wallet.balance >= getTotalAmount() && (
+                                {paymentMethod === "wallet" && wallet && wallet.balance >= getGrandTotal() && (
                                     <div className="mt-2 text-sm text-gray-600">
                                         Số dư còn lại sau thanh toán: <span className="font-semibold text-green-600">
-                                            {formatPrice(wallet.balance - getTotalAmount())}₫
+                                            {formatPrice(wallet.balance - getGrandTotal())}₫
                                         </span>
                                     </div>
                                 )}
@@ -352,11 +487,11 @@ const CartPayPage = () => {
 
                             <button
                                 onClick={handleOrder}
-                                className={`w-full ${isLoading || (paymentMethod === "wallet" && wallet && wallet.balance < getTotalAmount())
+                                className={`w-full ${isLoading || (paymentMethod === "wallet" && wallet && wallet.balance < getGrandTotal())
                                     ? 'bg-gray-400 cursor-not-allowed'
                                     : 'bg-red-500 hover:bg-red-600'
                                     } text-white py-3 rounded-md text-lg transition-colors`}
-                                disabled={isLoading || (paymentMethod === "wallet" && wallet && wallet.balance < getTotalAmount())}
+                                disabled={isLoading || (paymentMethod === "wallet" && wallet && wallet.balance < getGrandTotal())}
                             >
                                 {isLoading ? 'Đang xử lý...' : 'Xác Nhận Đặt Hàng'}
                             </button>

@@ -6,25 +6,30 @@ import OrderManagement from '../components/OrderManagement';
 import WalletManagement from '../components/WalletManagement';
 import Footers from '../components/Footers';
 import AdminUsers from '../components/AdminUsers';
-import { TECarousel, TECarouselItem } from 'tw-elements-react';
 import AdminBanner from '../pages/AdminBanner';
+
+const SIDE_PREFIX = 'side::';
+
 const AdminPage = () => {
     const [activeTab, setActiveTab] = useState('products');
     const [products, setProducts] = useState([]);
+    const [banners, setBanners] = useState([]);
+    const [currentSlide, setCurrentSlide] = useState(0);
     const [editingProduct, setEditingProduct] = useState(null);
     const [preview, setPreview] = useState('');
     const navigate = useNavigate();
 
-    // ✅ Form state
-    const [form, setForm] = useState({
-        title: '',
-        originalprice: '',
-        price: '',
-        discount: '',
-        tag: '',
-        image: '',
-        category: 'phone',
-    });
+    // 
+const [form, setForm] = useState({
+    title: '',
+    originalprice: '',
+    price: '',
+    discount: '',
+    tag: '',
+    image: '',
+    images: [], 
+    category: 'phone',
+});
 
     const [popup, setPopup] = useState({ show: false, message: '', type: 'success' });
 
@@ -62,45 +67,95 @@ const AdminPage = () => {
         }
     };
 
-    useEffect(() => {
-        fetchProducts();
-    }, []);
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const fetchBanners = async () => {
         try {
-            const formData = {
-                ...form,
-                originalprice: form.originalprice.replace(/\./g, ''),
-                price: form.price.replace(/\./g, ''),
-            };
-
-            if (editingProduct) {
-                const id = editingProduct.id || editingProduct._id;
-                await axios.put(`http://localhost:5000/api/products/${id}`, formData);
-                showPopup(' Cập nhật sản phẩm thành công!', 'success');
-                setEditingProduct(null);
-            } else {
-                await axios.post('http://localhost:5000/api/products', formData);
-                showPopup(' Thêm sản phẩm thành công!', 'success');
-            }
-
-            setForm({
-                title: '',
-                originalprice: '',
-                price: '',
-                discount: '',
-                tag: '',
-                image: '',
-                category: 'phone',
-            });
-            setPreview('');
-            fetchProducts();
+            const res = await axios.get('http://localhost:5000/api/banners');
+            const filtered = (res.data || []).filter((banner) =>
+                banner?.image_url && !String(banner.image_url).startsWith(SIDE_PREFIX)
+            );
+            setBanners(filtered.slice(0, 2));
         } catch (error) {
-            console.error(' Lỗi khi thêm/sửa sản phẩm:', error);
-            showPopup(' Lỗi khi thêm/sửa sản phẩm!', 'error');
+            console.error('Lỗi khi lấy banner:', error);
+            setBanners([]);
         }
     };
+
+    const getBannerSrc = (imageUrl = '') => {
+        if (!imageUrl) return '';
+        const cleanImageUrl = String(imageUrl).replace(SIDE_PREFIX, '');
+        if (cleanImageUrl.startsWith('http://') || cleanImageUrl.startsWith('https://') || cleanImageUrl.startsWith('/')) {
+            return cleanImageUrl;
+        }
+        return `/assets/${cleanImageUrl}`;
+    };
+
+    useEffect(() => {
+        fetchProducts();
+        fetchBanners();
+    }, []);
+
+    useEffect(() => {
+        if (!banners.length) {
+            setCurrentSlide(0);
+            return;
+        }
+
+        setCurrentSlide((prev) => (prev >= banners.length ? 0 : prev));
+
+        if (banners.length <= 1) return;
+
+        const timer = setInterval(() => {
+            setCurrentSlide((prev) => (prev + 1) % banners.length);
+        }, 3000);
+
+        return () => clearInterval(timer);
+    }, [banners.length]);
+
+const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    // ❌ chặn form rỗng
+    if (!form.title || !form.originalprice || !form.price) {
+        showPopup("Vui lòng nhập đầy đủ thông tin!", "error");
+        return;
+    }
+
+    try {
+        const formData = {
+            ...form,
+            originalprice: form.originalprice.replace(/\./g, ''),
+            price: form.price.replace(/\./g, ''),
+        };
+
+        if (editingProduct) {
+            const id = editingProduct.id || editingProduct._id;
+            await axios.put(`http://localhost:5000/api/products/${id}`, formData);
+            showPopup('Cập nhật thành công!', 'success');
+        } else {
+            await axios.post('http://localhost:5000/api/products', formData);
+            showPopup('Thêm sản phẩm thành công!', 'success');
+        }
+
+        // reset form (QUAN TRỌNG: phải có images)
+        setForm({
+            title: '',
+            originalprice: '',
+            price: '',
+            discount: '',
+            tag: '',
+            image: '',
+            images: [],
+            category: 'phone',
+        });
+
+        setPreview('');
+        fetchProducts();
+
+    } catch (error) {
+        console.error(error);
+        showPopup('Lỗi khi thêm/sửa!', 'error');
+    }
+};
 
     const handleDelete = async (id) => {
         if (window.confirm('Bạn có chắc muốn xoá sản phẩm này không?')) {
@@ -131,6 +186,7 @@ const AdminPage = () => {
             discount: product.discount || '',
             tag: product.tag || '',
             image: product.image || '',
+            images: product.images || [],
             category: product.category || 'phone',
         });
         setPreview(product.image || '');
@@ -204,24 +260,27 @@ const AdminPage = () => {
             </header>
 
             <div className="mt-28 w-full max-w-[1700px] mx-auto">
-                <TECarousel ride="carousel" showIndicators showControls>
-                    <div className="relative w-full h-64 overflow-hidden">
-                        <TECarouselItem itemID={1} data-te-carousel-active>
-                            <img
-                                src="https://cdnv2.tgdd.vn/mwg-static/tgdd/Banner/23/05/23050828d3211ce7b91e92473a3690b3.jpg"
-                                className="w-full h-full object-cover rounded-lg"
-                                alt="Slide 1"
-                            />
-                        </TECarouselItem>
-                        <TECarouselItem itemID={2}>
-                            <img
-                                src="https://cdnv2.tgdd.vn/mwg-static/tgdd/Banner/43/85/43854a7ba231f17252741049cc5a099a.png"
-                                className="w-full h-full object-cover rounded-lg"
-                                alt="Slide 2"
-                            />
-                        </TECarouselItem>
+                {banners.length > 0 ? (
+                    <div className="relative w-full h-64 overflow-hidden rounded-lg border border-gray-300 bg-white">
+                        <div
+                            className="flex h-full transition-transform duration-700 ease-in-out"
+                            style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+                        >
+                            {banners.map((banner, index) => (
+                                <img
+                                    key={banner.id || index}
+                                    src={getBannerSrc(banner.image_url)}
+                                    className="w-full h-full object-cover flex-shrink-0"
+                                    alt={`Slide ${index + 1}`}
+                                />
+                            ))}
+                        </div>
                     </div>
-                </TECarousel>
+                ) : (
+                    <div className="relative w-full h-64 overflow-hidden rounded-lg bg-gray-200 flex items-center justify-center text-gray-600">
+                        Chưa có banner từ API
+                    </div>
+                )}
             </div>
 
             {activeTab === 'products' ? (
@@ -291,13 +350,41 @@ const AdminPage = () => {
                                     if (file) {
                                         const imagePath = `/assets/${file.name}`;
                                         setForm({ ...form, image: imagePath });
-                                        const reader = new FileReader();
-                                        reader.onloadend = () => setPreview(reader.result);
-                                        reader.readAsDataURL(file);
+                                        setPreview(URL.createObjectURL(file));
                                     }
                                 }}
                                 className="border border-gray-300 rounded px-4 py-2 w-full"
                             />
+                            {/* Upload nhiều ảnh phụ */}
+<div className="mt-2">
+    <input
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={(e) => {
+            const files = Array.from(e.target.files || []);
+            if (!files.length) return;
+
+            const imagePaths = files.map((file) => `/assets/${file.name}`);
+            setForm({
+                ...form,
+                images: imagePaths
+            });
+        }}
+        className="border border-gray-300 rounded px-4 py-2 w-full"
+    />
+
+    {/* preview ảnh phụ */}
+    <div className="flex gap-2 mt-2 flex-wrap">
+        {form.images.map((img, index) => (
+            <img
+                key={index}
+                src={img}
+                className="w-16 h-16 object-cover rounded border"
+            />
+        ))}
+    </div>
+</div>
                             {preview && (
                                 <img src={preview} alt="Preview" className="w-24 h-24 object-cover mt-2 border rounded" />
                             )}

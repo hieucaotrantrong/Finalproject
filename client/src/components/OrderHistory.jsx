@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { Link } from 'react-router-dom';
 import { FaBox, FaTruck, FaCheckCircle, FaClock, FaTimesCircle } from 'react-icons/fa';
 import Home from './Home';
 import Footers from './Footers';
@@ -193,7 +194,7 @@ const OrderHistory = () => {
                                         <div className="flex justify-between items-start mb-4">
                                             <div>
                                                 <h3 className="text-lg font-semibold text-gray-800">
-                                                    Đơn hàng #{order.id}
+                                                    Đơn hàng 
                                                 </h3>
                                                 <p className="text-sm text-gray-500">
                                                     Đặt ngày: {new Date(order.created_at).toLocaleDateString('vi-VN')}
@@ -216,6 +217,17 @@ const OrderHistory = () => {
                                                         <p><span className="font-medium">Địa chỉ:</span> {order.address}</p>
                                                         <p><span className="font-medium">Thanh toán:</span> {order.payment_method === 'wallet' ? 'Ví điện tử' : 'COD'}</p>
                                                     </div>
+
+                                                    {order.status === 'completed' && (
+                                                        <div className="mt-4">
+                                                            <Link
+                                                                to={`/product/${order.product_id}`}
+                                                                className="inline-flex items-center px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition"
+                                                            >
+                                                                Đánh giá sản phẩm
+                                                            </Link>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
