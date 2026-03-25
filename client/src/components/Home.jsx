@@ -16,6 +16,7 @@ import {
 } from "react-icons/fa";
 
 const DEFAULT_AVATAR = '/assets/avt.jpg';
+const API_BASE_URL = 'http://localhost:5000/api';
 
 export default function Home({ onFilterChange }) {
     const [user, setUser] = useState(null);
@@ -40,6 +41,14 @@ export default function Home({ onFilterChange }) {
     const navigate = useNavigate();
     const searchRef = useRef(null);
     const { cartItems, getTotalItems, getTotalPrice, updateQuantity, removeFromCart, isCartOpen, setIsCartOpen } = useCart();
+
+    const getLocationName = (item) => item?.ProvinceName || item?.DistrictName || item?.WardName || item?.name || '';
+    const getLocationId = (item, type) => {
+        if (!item) return '';
+        if (type === 'province') return String(item.ProvinceID || item.code || '');
+        if (type === 'district') return String(item.DistrictID || item.code || '');
+        return String(item.WardCode || item.code || '');
+    };
 
     const formatPrice = (price) => {
         const numPrice = Math.floor(parseFloat(price.toString().replace(/\./g, '')));
@@ -99,9 +108,9 @@ export default function Home({ onFilterChange }) {
 
     const fetchProvinces = async () => {
         try {
-            const response = await fetch('https://provinces.open-api.vn/api/p/');
+            const response = await fetch(`${API_BASE_URL}/shipping/provinces`);
             const data = await response.json();
-            setProvinces(data);
+            setProvinces(data?.data || []);
         } catch (error) {
             console.error('Error fetching provinces:', error);
         }
@@ -109,9 +118,15 @@ export default function Home({ onFilterChange }) {
 
     const fetchDistricts = async (provinceCode) => {
         try {
-            const response = await fetch(`https://provinces.open-api.vn/api/p/${provinceCode}?depth=2`);
+            const response = await fetch(`${API_BASE_URL}/shipping/districts`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ provinceId: Number(provinceCode) })
+            });
             const data = await response.json();
-            setDistricts(data.districts || []);
+            setDistricts(data?.data || []);
             setWards([]);
         } catch (error) {
             console.error('Error fetching districts:', error);
@@ -120,9 +135,15 @@ export default function Home({ onFilterChange }) {
 
     const fetchWards = async (districtCode) => {
         try {
-            const response = await fetch(`https://provinces.open-api.vn/api/d/${districtCode}?depth=2`);
+            const response = await fetch(`${API_BASE_URL}/shipping/wards`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ districtId: Number(districtCode) })
+            });
             const data = await response.json();
-            setWards(data.wards || []);
+            setWards(data?.data || []);
         } catch (error) {
             console.error('Error fetching wards:', error);
         }
@@ -158,11 +179,11 @@ export default function Home({ onFilterChange }) {
 
     const handleSaveAddress = () => {
         if (selectedProvince && selectedDistrict && selectedWard) {
-            const province = provinces.find(p => p.code == selectedProvince);
-            const district = districts.find(d => d.code == selectedDistrict);
-            const ward = wards.find(w => w.code == selectedWard);
+            const province = provinces.find((p) => getLocationId(p, 'province') === String(selectedProvince));
+            const district = districts.find((d) => getLocationId(d, 'district') === String(selectedDistrict));
+            const ward = wards.find((w) => getLocationId(w, 'ward') === String(selectedWard));
 
-            const newAddress = `${ward.name}, ${district.name}, ${province.name}`;
+            const newAddress = `${getLocationName(ward)}, ${getLocationName(district)}, ${getLocationName(province)}`;
             const fullAddress = newAddress;
             const displayAddress = newAddress.length > 25 ? newAddress.substring(0, 25) + '...' : newAddress;
 
@@ -196,28 +217,30 @@ export default function Home({ onFilterChange }) {
     ];
 
     const handleSelectProvince = (province) => {
-        setSelectedProvince(province.code);
+        const provinceId = getLocationId(province, 'province');
+        setSelectedProvince(provinceId);
         setSelectedDistrict('');
         setSelectedWard('');
-        fetchDistricts(province.code);
+        fetchDistricts(provinceId);
         setActiveTab('district');
         setSearchTerm('');
     };
 
     const handleSelectDistrict = (district) => {
-        setSelectedDistrict(district.code);
+        const districtId = getLocationId(district, 'district');
+        setSelectedDistrict(districtId);
         setSelectedWard('');
-        fetchWards(district.code);
+        fetchWards(districtId);
         setActiveTab('ward');
         setSearchTerm('');
     };
 
     const handleSelectWard = (ward) => {
-        setSelectedWard(ward.code);
-        const province = provinces.find(p => p.code == selectedProvince);
-        const district = districts.find(d => d.code == selectedDistrict);
+        setSelectedWard(getLocationId(ward, 'ward'));
+        const province = provinces.find((p) => getLocationId(p, 'province') === String(selectedProvince));
+        const district = districts.find((d) => getLocationId(d, 'district') === String(selectedDistrict));
 
-        const newAddress = `${ward.name}, ${district.name}, ${province.name}`;
+        const newAddress = `${getLocationName(ward)}, ${getLocationName(district)}, ${getLocationName(province)}`;
         setCurrentAddress(newAddress.length > 25 ? newAddress.substring(0, 25) + '...' : newAddress);
 
 
@@ -236,7 +259,7 @@ export default function Home({ onFilterChange }) {
 
         if (searchTerm) {
             return items.filter(item => {
-                const name = item.name.toLowerCase();
+                const name = getLocationName(item).toLowerCase();
                 const search = searchTerm.toLowerCase();
 
                 /*----------------------------------------  
@@ -251,15 +274,15 @@ export default function Home({ onFilterChange }) {
 
     const getCurrentAddress = () => {
         if (selectedWard && selectedDistrict && selectedProvince) {
-            const province = provinces.find(p => p.code == selectedProvince);
-            const district = districts.find(d => d.code == selectedDistrict);
-            return `${district?.name}, ${province?.name}`;
+            const province = provinces.find((p) => getLocationId(p, 'province') === String(selectedProvince));
+            const district = districts.find((d) => getLocationId(d, 'district') === String(selectedDistrict));
+            return `${getLocationName(district)}, ${getLocationName(province)}`;
         }
         if (selectedDistrict && selectedProvince) {
-            const province = provinces.find(p => p.code == selectedProvince);
-            return province?.name;
+            const province = provinces.find((p) => getLocationId(p, 'province') === String(selectedProvince));
+            return getLocationName(province);
         }
-        return 'Quận 1, Hồ Chí Minh';
+        return '';
     };
 
     const handleCategoryClick = (categoryLabel) => {
@@ -652,7 +675,7 @@ export default function Home({ onFilterChange }) {
                             <div className="grid grid-cols-2 gap-2">
                                 {getFilteredItems().map((item) => (
                                     <button
-                                        key={item.code}
+                                        key={getLocationId(item, activeTab)}
                                         onClick={() => {
                                             if (activeTab === 'province') handleSelectProvince(item);
                                             else if (activeTab === 'district') handleSelectDistrict(item);
@@ -660,7 +683,7 @@ export default function Home({ onFilterChange }) {
                                         }}
                                         className="text-left p-3 hover:bg-gray-100 rounded-lg transition-colors"
                                     >
-                                        {item.name}
+                                        {getLocationName(item)}
                                     </button>
                                 ))}
                             </div>

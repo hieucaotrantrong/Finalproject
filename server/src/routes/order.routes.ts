@@ -3,7 +3,9 @@ import {
     createOrder,
     getAllOrders,
     updateOrderStatus,
-    getUserOrders
+   getUserOrders,
+   cancelUserOrder,
+   deleteUserOrder
 } from '../controllers/order.controller';
 import { adminAuth } from '../middleware/adminAuth';
 import { auth } from '../types/auth';
@@ -38,5 +40,15 @@ router.put('/:id', adminAuth, asyncHandler(updateOrderStatus));
    User lấy order theo email
 -----------------------------------*/
 router.get('/user/:email', auth, asyncHandler(getUserOrders));
+
+/*----------------------------------
+   User hủy đơn pending của chính mình
+-----------------------------------*/
+router.put('/user/:id/cancel', auth, asyncHandler(cancelUserOrder));
+
+/*----------------------------------
+   User xóa đơn đã giao/đã hủy của chính mình
+-----------------------------------*/
+router.delete('/user/:id', auth, asyncHandler(deleteUserOrder));
 
 export default router;

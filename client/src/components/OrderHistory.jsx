@@ -1,259 +1,299 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
-import { FaBox, FaTruck, FaCheckCircle, FaClock, FaTimesCircle } from 'react-icons/fa';
+import { FaBox, FaTruck, FaCheckCircle, FaClock, FaTimesCircle, FaCalendarAlt, FaChevronRight } from 'react-icons/fa';
 import Home from './Home';
 import Footers from './Footers';
+import Carousel from './Carousel';
+
+const SIDE_PREFIX = "side::";
+const isSideBanner = (imageUrl = "") => imageUrl.startsWith(SIDE_PREFIX);
+const toDisplayImageUrl = (imageUrl = "") => imageUrl.replace(SIDE_PREFIX, "");
+
+const formatVnd = (value) => {
+    const num = Number(String(value ?? 0).replace(/[^\d.-]/g, ''));
+    if (!Number.isFinite(num)) return '0';
+    return num.toLocaleString('vi-VN');
+};
+
+const resolveOrderImage = (imageUrl = '') => {
+    const raw = String(imageUrl || '').trim();
+    if (!raw) return '';
+
+    if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('data:')) {
+        return raw;
+    }
+
+    if (raw.startsWith('/assets/') || raw.startsWith('/uploads/')) {
+        return raw;
+    }
+
+    if (raw.startsWith('/')) {
+        return raw;
+    }
+
+    return `/assets/${raw}`;
+};
 
 const OrderHistory = () => {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [activeTab, setActiveTab] = useState('all');
+    const [activeTab, setActiveTab] = useState('pending');
+    const [sideBanner, setSideBanner] = useState(null);
 
-    // Tabs cho phân loại đơn hàng
+    // Danh sách các tab chia thành từng ô riêng biệt như ảnh
     const orderTabs = [
-        { key: 'all', label: 'Tất cả', count: orders.length },
-        { key: 'pending', label: 'Chờ xác nhận', count: orders.filter(o => o.status === 'pending').length },
-        { key: 'confirmed', label: 'Chờ lấy hàng', count: orders.filter(o => o.status === 'confirmed').length },
-        { key: 'shipping', label: 'Chờ giao hàng', count: orders.filter(o => o.status === 'shipping').length },
-        { key: 'completed', label: 'Đã giao', count: orders.filter(o => o.status === 'completed').length },
-        { key: 'cancelled', label: 'Đã hủy', count: orders.filter(o => o.status === 'cancelled').length }
+        { key: 'all', label: 'Tất cả' }, // Thêm option tất cả nếu bạn muốn
+        { key: 'pending', label: 'Chờ xử lý' },
+        { key: 'confirmed', label: 'Đã xác nhận' },
+        { key: 'shipping', label: 'Đang giao hàng' },
+        { key: 'cancelled', label: 'Đã hủy' },
+        { key: 'completed', label: 'Thành công' }
     ];
 
-    // Filter orders theo tab
-    const filteredOrders = activeTab === 'all'
-        ? orders
+    // Logic lọc đơn hàng
+    const filteredOrders = activeTab === 'all' 
+        ? orders 
         : orders.filter(order => order.status === activeTab);
 
     useEffect(() => {
         fetchUserOrders();
-
-        // Listen for notification updates
         const handleStorageChange = (e) => {
             if (e.key === 'orderUpdate') {
                 fetchUserOrders();
                 localStorage.removeItem('orderUpdate');
             }
         };
-
         window.addEventListener('storage', handleStorageChange);
         return () => window.removeEventListener('storage', handleStorageChange);
     }, []);
 
+    useEffect(() => {
+        fetch("http://localhost:5000/api/banners")
+            .then(res => res.json())
+            .then(data => {
+                if (Array.isArray(data)) {
+                    const firstSideBanner = data.find((item) => isSideBanner(item.image_url));
+                    setSideBanner(firstSideBanner || null);
+                }
+            })
+            .catch(err => console.log("Lỗi fetch banner:", err));
+    }, []);
+
+    const resolveBannerSrc = (banner) => {
+        const cleanImageUrl = toDisplayImageUrl(banner?.image_url || "");
+
+        if (!cleanImageUrl) {
+            return "/assets/bannerngang.png";
+        }
+
+        if (
+            cleanImageUrl.startsWith("http://") ||
+            cleanImageUrl.startsWith("https://") ||
+            cleanImageUrl.startsWith("/")
+        ) {
+            return cleanImageUrl;
+        }
+
+        return `/assets/${cleanImageUrl}`;
+    };
+
+    const sideBannerSrc = resolveBannerSrc(sideBanner);
+
     const fetchUserOrders = async () => {
         try {
             const token = localStorage.getItem('token');
-            const userEmail =
-                localStorage.getItem('userEmail') ||
-                JSON.parse(localStorage.getItem('user') || '{}')?.email;
-
+            const userEmail = localStorage.getItem('userEmail') || JSON.parse(localStorage.getItem('user') || '{}')?.email;
             if (!token || !userEmail) {
                 setError('Vui lòng đăng nhập để xem lịch sử đơn hàng');
                 setLoading(false);
                 return;
             }
-
             const response = await axios.get(`http://localhost:5000/api/orders/user/${userEmail}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+                headers: { 'Authorization': `Bearer ${token}` }
             });
-
             setOrders(response.data);
             setLoading(false);
         } catch (error) {
-            console.error('Lỗi khi tải lịch sử đơn hàng:', error);
             setError('Không thể tải lịch sử đơn hàng');
             setLoading(false);
         }
     };
 
-    const getStatusIcon = (status) => {
-        switch (status) {
-            case 'pending': return <FaClock className="text-yellow-500" />;
-            case 'confirmed': return <FaBox className="text-blue-500" />;
-            case 'shipping': return <FaTruck className="text-purple-500" />;
-            case 'completed': return <FaCheckCircle className="text-green-500" />;
-            case 'cancelled': return <FaTimesCircle className="text-red-500" />;
-            default: return <FaClock className="text-gray-500" />;
+    const handleCancelOrder = async (orderId) => {
+        if (!window.confirm('Bạn có chắc muốn hủy đơn hàng này không?')) return;
+        try {
+            await axios.put(`http://localhost:5000/api/orders/user/${orderId}/cancel`, {}, {
+                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+            });
+            fetchUserOrders();
+        } catch (err) {
+            alert(err?.response?.data?.error || 'Không thể hủy đơn hàng');
         }
     };
 
-    const getStatusText = (status) => {
-        switch (status) {
-            case 'pending': return 'Chờ xác nhận';
-            case 'confirmed': return 'Đã xác nhận';
-            case 'shipping': return 'Đang giao hàng';
-            case 'completed': return 'Đã giao hàng';
-            case 'cancelled': return 'Đã hủy';
-            default: return 'Chờ xác nhận';
+    const handleDeleteOrder = async (orderId) => {
+        if (!window.confirm('Bạn có chắc muốn xóa đơn hàng này khỏi lịch sử không?')) return;
+        try {
+            await axios.delete(`http://localhost:5000/api/orders/user/${orderId}`, {
+                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+            });
+            fetchUserOrders();
+        } catch (err) {
+            alert(err?.response?.data?.error || 'Không thể xóa đơn hàng');
         }
     };
 
-    const getStatusColor = (status) => {
-        switch (status) {
-            case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-            case 'confirmed': return 'bg-blue-100 text-blue-800 border-blue-200';
-            case 'shipping': return 'bg-purple-100 text-purple-800 border-purple-200';
-            case 'completed': return 'bg-green-100 text-green-800 border-green-200';
-            case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
-            default: return 'bg-gray-100 text-gray-800 border-gray-200';
-        }
+    const getStatusStyle = (status) => {
+        const styles = {
+            pending: { text: 'Chờ xác nhận', color: 'text-yellow-600', icon: <FaClock /> },
+            confirmed: { text: 'Đã xác nhận', color: 'text-blue-600', icon: <FaBox /> },
+            shipping: { text: 'Đang giao hàng', color: 'text-indigo-600', icon: <FaTruck /> },
+            completed: { text: 'Thành công', color: 'text-green-600' },
+            cancelled: { text: 'Đã hủy', color: 'text-red-600', icon: <FaTimesCircle /> },
+        };
+        return styles[status] || styles.pending;
     };
-
-    if (loading) {
-        return (
-            <div>
-                <Home />
-                <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                    <div className="text-center">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-                        <p className="mt-4 text-gray-600">Đang tải lịch sử đơn hàng...</p>
-                    </div>
-                </div>
-                <Footers />
-            </div>
-        );
-    }
-
-    if (error) {
-        return (
-            <div>
-                <Home />
-                <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                    <div className="text-center">
-                        <p className="text-red-600 text-lg">{error}</p>
-                    </div>
-                </div>
-                <Footers />
-            </div>
-        );
-    }
 
     return (
-        <div>
+        <div className="bg-[#f0f2f5] min-h-screen">
             <Home />
-            <div className="min-h-screen bg-gray-50 py-8">
-                <div className="max-w-6xl mx-auto px-4">
-                    <h1 className="text-3xl font-bold text-gray-800 mb-8"> Lịch sử đơn hàng</h1>
 
-                    {/* Tabs phân loại đơn hàng */}
-                    <div className="bg-white rounded-lg shadow-sm mb-6">
-                        <div className="flex overflow-x-auto">
-                            {orderTabs.map((tab) => (
-                                <button
-                                    key={tab.key}
-                                    onClick={() => setActiveTab(tab.key)}
-                                    className={`flex-1 min-w-[120px] px-4 py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.key
-                                        ? 'text-red-600 border-red-600 bg-red-50'
-                                        : 'text-gray-600 border-transparent hover:text-gray-800 hover:bg-gray-50'
-                                        }`}
-                                >
-                                    <div className="text-center">
-                                        <div>{tab.label}</div>
-                                        {tab.count > 0 && (
-                                            <div className={`text-xs mt-1 ${activeTab === tab.key ? 'text-red-500' : 'text-gray-400'
-                                                }`}>
-                                                ({tab.count})
-                                            </div>
-                                        )}
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
+            <div className="hidden xl:block fixed left-3 top-[190px] z-40">
+                <img
+                    src={sideBannerSrc}
+                    alt="Left side banner"
+                    className="w-[110px] h-[330px] rounded-lg object-cover"
+                />
+            </div>
 
-                    {/* Nội dung đơn hàng */}
+            <div className="hidden xl:block fixed right-3 top-[190px] z-40">
+                <img
+                    src={sideBannerSrc}
+                    alt="Right side banner"
+                    className="w-[110px] h-[330px] rounded-lg object-cover"
+                />
+            </div>
+
+            <Carousel />
+
+            <div className="max-w-6xl mx-auto px-4 py-6">
+                
+                {/* Header Section */}
+                <div className="flex items-center gap-4 mb-6">
+                    <h1 className="text-xl font-normal text-gray-800">Đơn hàng đã mua</h1>
+                    
+                </div>
+
+                {/* Tab Buttons - Chia từng ô riêng biệt như ảnh bạn gửi */}
+                <div className="flex flex-wrap gap-3 mb-8">
+                    {orderTabs.map((tab) => (
+                        <button
+                            key={tab.key}
+                            onClick={() => setActiveTab(tab.key)}
+                            className={`px-6 py-2.5 rounded border transition-all text-[15px] ${
+                                activeTab === tab.key 
+                                ? 'bg-white border-blue-600 text-blue-600 shadow-sm' 
+                                : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
+                            }`}
+                        >
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Content Area */}
+                <div className="bg-white rounded-sm shadow-sm min-h-[400px]">
                     {loading ? (
-                        <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-                            <p className="mt-4 text-gray-600">Đang tải lịch sử đơn hàng...</p>
-                        </div>
-                    ) : error ? (
-                        <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-                            <p className="text-red-600 text-lg">{error}</p>
+                        <div className="flex justify-center items-center h-64">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                         </div>
                     ) : filteredOrders.length === 0 ? (
-                        <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-                            <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                                <FaBox className="text-4xl text-gray-400" />
-                            </div>
-                            <h3 className="text-xl font-semibold text-gray-600 mb-2">
-                                {activeTab === 'all' ? 'Chưa có đơn hàng nào' : `Không có đơn hàng ${orderTabs.find(t => t.key === activeTab)?.label.toLowerCase()}`}
-                            </h3>
-                            <p className="text-gray-500">
-                                {activeTab === 'all' ? 'Bạn chưa đặt đơn hàng nào. Hãy mua sắm ngay!' : 'Hãy tiếp tục mua sắm để có thêm đơn hàng!'}
-                            </p>
+                        /* Giao diện khi không có đơn hàng */
+                        <div className="py-20 text-center">
+                          
+                            <h3 className="text-xl font-bold text-gray-800 mb-2">Rất tiếc, không tìm thấy đơn hàng nào phù hợp</h3>
+                            <p className="text-gray-500 mb-6 font-light">Vẫn còn rất nhiều sản phẩm đang chờ bạn</p>
+                            
+                
+
                         </div>
                     ) : (
-                        <div className="space-y-6">
-                            {filteredOrders.map((order) => (
-                                <div key={order.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                                    <div className="p-6">
+                        /* Danh sách đơn hàng */
+                        <div className="divide-y divide-gray-100">
+                            {filteredOrders.map((order) => {
+                                const status = getStatusStyle(order.status);
+                                return (
+                                    <div key={order.id} className="p-6 hover:bg-gray-50/50 transition">
                                         <div className="flex justify-between items-start mb-4">
-                                            <div>
-                                                <h3 className="text-lg font-semibold text-gray-800">
-                                                    Đơn hàng 
-                                                </h3>
-                                                <p className="text-sm text-gray-500">
-                                                    Đặt ngày: {new Date(order.created_at).toLocaleDateString('vi-VN')}
-                                                </p>
-                                            </div>
-                                            <div className={`flex items-center gap-2 px-3 py-2 rounded-full border ${getStatusColor(order.status)}`}>
-                                                {getStatusIcon(order.status)}
-                                                <span className="text-sm font-medium">{getStatusText(order.status)}</span>
-                                            </div>
-                                        </div>
-
-                                        <div className="border-t border-gray-100 pt-4">
                                             <div className="flex gap-4">
-                                                <div className="flex-1">
-                                                    <h4 className="font-medium text-gray-800 mb-2">{order.product_title}</h4>
-                                                    <p className="text-2xl font-bold text-red-600">{order.product_price?.toLocaleString()}₫</p>
-                                                    <div className="mt-3 text-sm text-gray-600">
-                                                        <p><span className="font-medium">Người nhận:</span> {order.full_name}</p>
-                                                        <p><span className="font-medium">Điện thoại:</span> {order.phone}</p>
-                                                        <p><span className="font-medium">Địa chỉ:</span> {order.address}</p>
-                                                        <p><span className="font-medium">Thanh toán:</span> {order.payment_method === 'wallet' ? 'Ví điện tử' : 'COD'}</p>
-                                                    </div>
-
-                                                    {order.status === 'completed' && (
-                                                        <div className="mt-4">
-                                                            <Link
-                                                                to={`/product/${order.product_id}`}
-                                                                className="inline-flex items-center px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition"
-                                                            >
-                                                                Đánh giá sản phẩm
-                                                            </Link>
+                                                {/* Hiển thị hình ảnh sản phẩm */}
+                                                <div className="w-20 h-20 bg-gray-50 border rounded flex-shrink-0 overflow-hidden">
+                                                    {resolveOrderImage(order.product_image) ? (
+                                                        <img 
+                                                            src={resolveOrderImage(order.product_image)}
+                                                            alt={order.product_title}
+                                                            className="w-full h-full object-contain"
+                                                            onError={(e) => { e.currentTarget.src = "https://via.placeholder.com/150?text=No+Image"; }}
+                                                        />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center text-gray-300">
+                                                            <FaBox size={24} />
                                                         </div>
                                                     )}
                                                 </div>
+                                                <div>
+                                                    <h4 className="font-medium text-gray-800 line-clamp-2 max-w-md">
+                                                        {order.product_title}
+                                                    </h4>
+                                                    <p className="text-sm text-gray-500 mt-1">Mã đơn: #{order.id}</p>
+                                                    <div className="mt-2 text-xs text-gray-400 space-y-0.5">
+                                                        <p>Người nhận: {order.full_name}</p>
+                                                        <p>SĐT: {order.phone}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className={`flex items-center justify-end gap-1.5 font-medium mb-1 ${status.color}`}>
+                                                    {status.icon}
+                                                    <span className="text-[13px] uppercase tracking-wide">{status.text}</span>
+                                                </div>
+                                                <p className="text-lg font-bold text-red-600">{formatVnd(order.product_price)}₫</p>
                                             </div>
                                         </div>
-
-                                        {/* Progress bar cho trạng thái */}
-                                        <div className="mt-6 pt-4 border-t border-gray-100">
-                                            <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
-                                                <span>Chờ xác nhận</span>
-                                                <span>Đã xác nhận</span>
-                                                <span>Đang giao</span>
-                                                <span>Hoàn thành</span>
-                                            </div>
-                                            <div className="w-full bg-gray-200 rounded-full h-2">
-                                                <div
-                                                    className={`h-2 rounded-full transition-all duration-300 ${order.status === 'pending' ? 'bg-yellow-500 w-1/4' :
-                                                        order.status === 'confirmed' ? 'bg-blue-500 w-2/4' :
-                                                            order.status === 'shipping' ? 'bg-purple-500 w-3/4' :
-                                                                order.status === 'completed' ? 'bg-green-500 w-full' :
-                                                                    'bg-red-500 w-1/4'
-                                                        }`}
-                                                ></div>
+                                        <div className="flex justify-between items-center mt-4">
+                                            <span className="text-xs text-gray-400">
+                                                Ngày đặt: {new Date(order.created_at).toLocaleString('vi-VN')}
+                                            </span>
+                                            <div className="flex gap-2">
+                                                {order.status === 'pending' && (
+                                                    <button
+                                                        onClick={() => handleCancelOrder(order.id)}
+                                                        className="px-4 py-1.5 border border-red-500 text-red-500 rounded text-sm hover:bg-red-50"
+                                                    >
+                                                        Hủy đơn
+                                                    </button>
+                                                )}
+                                                {activeTab === 'all' && ['completed', 'cancelled'].includes(order.status) && (
+                                                    <button
+                                                        onClick={() => handleDeleteOrder(order.id)}
+                                                        className="px-4 py-1.5 border border-gray-500 text-gray-700 rounded text-sm hover:bg-gray-100"
+                                                    >
+                                                        Xóa đơn
+                                                    </button>
+                                                )}
+                                                <Link
+                                                    to={`/product/${order.product_id}`}
+                                                    className="px-4 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 shadow-sm"
+                                                >
+                                                    Xem chi tiết
+                                                </Link>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </div>
@@ -264,6 +304,3 @@ const OrderHistory = () => {
 };
 
 export default OrderHistory;
-
-
-

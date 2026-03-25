@@ -6,28 +6,22 @@ Get all products
 -----------------------------------*/
 export const getAllProducts = async (req: Request, res: Response): Promise<void> => {
     try {
-        console.log('Attempting to query products...');
         const result = await pool.query('SELECT * FROM products');
-        console.log('Query successful, rows:', result.rows.length);
         res.json(result.rows);
     } catch (err) {
         console.error('Lỗi khi lấy sản phẩm:', err);
-        // Trả về thông tin lỗi chi tiết hơn trong development
-        res.status(500).json({
-            error: 'Lỗi khi lấy sản phẩm',
-            details: process.env.NODE_ENV !== 'production' ? err : undefined
-        });
+        res.status(500).json({ error: 'Lỗi khi lấy sản phẩm' });
     }
 };
 
 /*----------------------------------
-Get product by id
+Get product by id (FULL: product + images + specs)
 -----------------------------------*/
 export const getProductById = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
 
     try {
-        // 1. lấy product
+        // 1. product
         const result = await pool.query(
             'SELECT * FROM products WHERE id = $1',
             [id]
@@ -40,16 +34,22 @@ export const getProductById = async (req: Request, res: Response): Promise<void>
 
         const product = result.rows[0];
 
-        // 2. lấy danh sách ảnh
+        // 2. images
         const imageResult = await pool.query(
             'SELECT image_url FROM product_images WHERE product_id = $1',
             [id]
         );
 
-        // 3. gộp images vào product
         product.images = imageResult.rows.map((img: any) => img.image_url);
 
-        // 4. trả về
+        // 🔥 3. specs
+        const specResult = await pool.query(
+            'SELECT group_name, spec_key, spec_value FROM product_specs WHERE product_id = $1',
+            [id]
+        );
+
+        product.specs = specResult.rows;
+
         res.json(product);
 
     } catch (err) {
@@ -59,16 +59,28 @@ export const getProductById = async (req: Request, res: Response): Promise<void>
 };
 
 /*----------------------------------
-Create product
+Create product (FULL: product + images + specs)
 -----------------------------------*/
 export const createProduct = async (req: Request, res: Response): Promise<void> => {
-    const { title, originalprice, price, discount, tag, image, category, images } = req.body;
+    const {
+        title,
+        originalprice,
+        price,
+        discount,
+        tag,
+        image,
+        category,
+        images,
+        specs
+    } = req.body;
 
-    console.log('Received data:', req.body);
+    const client = await pool.connect();
 
     try {
-        // 1. thêm product
-        const result = await pool.query(
+        await client.query('BEGIN');
+
+        // 1. insert product
+        const result = await client.query(
             `INSERT INTO products (title, originalprice, price, discount, tag, image, category)
              VALUES ($1, $2, $3, $4, $5, $6, $7)
              RETURNING *`,
@@ -77,10 +89,11 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
 
         const newProduct = result.rows[0];
 
-        // 2. thêm nhiều ảnh vào bảng product_images
-        if (images && images.length > 0) {
+        // 2. insert images
+        if (Array.isArray(images)) {
             for (const img of images) {
-                await pool.query(
+                if (!img) continue;
+                await client.query(
                     `INSERT INTO product_images (product_id, image_url)
                      VALUES ($1, $2)`,
                     [newProduct.id, img]
@@ -88,26 +101,62 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
             }
         }
 
+        // 🔥 3. insert specs
+        if (Array.isArray(specs)) {
+            for (const spec of specs) {
+                if (!spec.spec_key || !spec.spec_value) continue;
+
+                await client.query(
+                    `INSERT INTO product_specs (product_id, group_name, spec_key, spec_value)
+                     VALUES ($1, $2, $3, $4)`,
+                    [
+                        newProduct.id,
+                        spec.group_name,
+                        spec.spec_key,
+                        spec.spec_value
+                    ]
+                );
+            }
+        }
+
+        await client.query('COMMIT');
+
         res.status(201).json(newProduct);
 
     } catch (err) {
-        console.error('Database error:', err);
+        await client.query('ROLLBACK');
+        console.error('Lỗi khi thêm sản phẩm:', err);
         res.status(500).json({ error: 'Lỗi khi thêm sản phẩm' });
+    } finally {
+        client.release();
     }
 };
 
 /*----------------------------------
-Update product
+Update product (FULL: product + images + specs)
 -----------------------------------*/
 export const updateProduct = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
-    const { title, originalprice, price, discount, tag, image, category, images } = req.body;
 
-    console.log('Update product ID:', id);
-    console.log('Update data:', req.body);
+    const {
+        title,
+        originalprice,
+        price,
+        discount,
+        tag,
+        image,
+        category,
+        images,
+        specs
+    } = req.body;
+
+    const client = await pool.connect();
 
     try {
-        const result = await pool.query(
+        await client.query('BEGIN');
+
+        // 1. update product
+        const result = await client.query(
             `UPDATE products 
              SET title = $1,
                  "originalprice" = $2,
@@ -120,12 +169,22 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
             [title, originalprice, price, discount, tag, image, category, id]
         );
 
+        if ((result.rowCount ?? 0) === 0) {
+            await client.query('ROLLBACK');
+            res.status(404).json({ error: 'Sản phẩm không tồn tại' });
+            return;
+        }
+
+        // 2. update images
         if (Array.isArray(images)) {
-            await pool.query('DELETE FROM product_images WHERE product_id = $1', [id]);
+            await client.query(
+                'DELETE FROM product_images WHERE product_id = $1',
+                [id]
+            );
 
             for (const img of images) {
                 if (!img) continue;
-                await pool.query(
+                await client.query(
                     `INSERT INTO product_images (product_id, image_url)
                      VALUES ($1, $2)`,
                     [id, img]
@@ -133,16 +192,39 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
             }
         }
 
-        console.log('Update result rowCount:', result.rowCount);
+        // 🔥 3. update specs
+        if (Array.isArray(specs)) {
+            await client.query(
+                'DELETE FROM product_specs WHERE product_id = $1',
+                [id]
+            );
 
-        if ((result.rowCount ?? 0) > 0) {
-            res.json({ message: 'Cập nhật sản phẩm thành công' });
-        } else {
-            res.status(404).json({ error: 'Sản phẩm không tồn tại' });
+            for (const spec of specs) {
+                if (!spec.spec_key || !spec.spec_value) continue;
+
+                await client.query(
+                    `INSERT INTO product_specs (product_id, group_name, spec_key, spec_value)
+                     VALUES ($1, $2, $3, $4)`,
+                    [
+                        id,
+                        spec.group_name,
+                        spec.spec_key,
+                        spec.spec_value
+                    ]
+                );
+            }
         }
+
+        await client.query('COMMIT');
+
+        res.json({ message: 'Cập nhật sản phẩm thành công' });
+
     } catch (err) {
-        console.error('Database error:', err);
+        await client.query('ROLLBACK');
+        console.error('Lỗi khi cập nhật sản phẩm:', err);
         res.status(500).json({ error: 'Lỗi khi cập nhật sản phẩm' });
+    } finally {
+        client.release();
     }
 };
 
@@ -164,7 +246,7 @@ export const deleteProduct = async (req: Request, res: Response): Promise<void> 
             res.status(404).json({ error: 'Sản phẩm không tồn tại' });
         }
     } catch (err) {
-        console.error('Database error:', err);
+        console.error('Lỗi khi xóa sản phẩm:', err);
         res.status(500).json({ error: 'Lỗi khi xóa sản phẩm' });
     }
 };

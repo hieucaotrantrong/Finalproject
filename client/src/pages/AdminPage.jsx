@@ -30,7 +30,9 @@ const [form, setForm] = useState({
     images: [], 
     category: 'phone',
 });
-
+const [specs, setSpecs] = useState([
+    { group_name: '', spec_key: '', spec_value: '' }
+]);
     const [popup, setPopup] = useState({ show: false, message: '', type: 'success' });
 
     // ✅ Show popup
@@ -39,6 +41,14 @@ const [form, setForm] = useState({
     };
 
     const closePopup = () => setPopup({ ...popup, show: false });
+
+    const updateSpecField = (index, field, value) => {
+        setSpecs((prev) => {
+            const next = [...prev];
+            next[index] = { ...next[index], [field]: value };
+            return next;
+        });
+    };
 
     const categories = [
         { value: 'phone', label: ' Điện thoại' },
@@ -125,6 +135,7 @@ const handleSubmit = async (e) => {
             ...form,
             originalprice: form.originalprice.replace(/\./g, ''),
             price: form.price.replace(/\./g, ''),
+             specs: specs 
         };
 
         if (editingProduct) {
@@ -150,7 +161,7 @@ const handleSubmit = async (e) => {
 
         setPreview('');
         fetchProducts();
-
+setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
     } catch (error) {
         console.error(error);
         showPopup('Lỗi khi thêm/sửa!', 'error');
@@ -170,26 +181,40 @@ const handleSubmit = async (e) => {
         }
     };
 
-    const handleEdit = (product) => {
-        setEditingProduct(product);
-        const cleanOriginal = Math.floor(parseFloat(product.originalprice || 0))
+    const handleEdit = async (product) => {
+        try {
+            const id = product.id || product._id;
+            const detailRes = await axios.get(`http://localhost:5000/api/products/${id}`);
+            const detailProduct = detailRes.data || product;
+
+            setEditingProduct(detailProduct);
+            const cleanOriginal = Math.floor(parseFloat(detailProduct.originalprice || 0))
             .toString()
             .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-        const cleanPrice = Math.floor(parseFloat(product.price || 0))
+            const cleanPrice = Math.floor(parseFloat(detailProduct.price || 0))
             .toString()
             .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
-        setForm({
-            title: product.title || '',
+            setForm({
+            title: detailProduct.title || '',
             originalprice: cleanOriginal,
             price: cleanPrice,
-            discount: product.discount || '',
-            tag: product.tag || '',
-            image: product.image || '',
-            images: product.images || [],
-            category: product.category || 'phone',
+            discount: detailProduct.discount || '',
+            tag: detailProduct.tag || '',
+            image: detailProduct.image || '',
+            images: detailProduct.images || [],
+            category: detailProduct.category || 'phone',
         });
-        setPreview(product.image || '');
+            setPreview(detailProduct.image || '');
+            setSpecs(
+                Array.isArray(detailProduct.specs) && detailProduct.specs.length > 0
+                    ? detailProduct.specs
+                    : [{ group_name: '', spec_key: '', spec_value: '' }]
+            );
+        } catch (error) {
+            console.error('Lỗi khi lấy chi tiết sản phẩm để sửa:', error);
+            showPopup('Không tải được thông số kỹ thuật để sửa!', 'error');
+        }
     };
 
     const formatPrice = (value) => {
@@ -389,7 +414,100 @@ const handleSubmit = async (e) => {
                                 <img src={preview} alt="Preview" className="w-24 h-24 object-cover mt-2 border rounded" />
                             )}
                         </div>
+                        <div className="col-span-1 md:col-span-2 mt-6 border rounded-xl bg-white shadow-sm overflow-hidden">
+    {/* Header */}
+    <div className="bg-gray-50 px-6 py-4 border-b flex justify-between items-center">
+        <h3 className="font-bold text-gray-700">Thông số kỹ thuật</h3>
+        <span className="text-xs text-gray-500 bg-gray-200 px-2 py-1 rounded-full">
+            {specs.length} mục
+        </span>
+    </div>
 
+    <div className="p-0">
+        <table className="w-full text-left border-collapse">
+            <thead>
+                <tr className="bg-gray-50/50 text-gray-400 text-[11px] uppercase tracking-wider">
+                    <th className="px-6 py-3 font-medium border-b w-1/3">Nhóm danh mục</th>
+                    <th className="px-6 py-3 font-medium border-b w-1/3">Tên thông số</th>
+                    <th className="px-6 py-3 font-medium border-b w-1/3">Giá trị chi tiết</th>
+                    <th className="px-4 py-3 border-b w-10"></th>
+                </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+                {specs.map((spec, index) => (
+                    <tr key={index} className="hover:bg-blue-50/30 transition-colors group">
+                        <td className="px-4 py-2">
+                            <input
+                                type="text"
+                                placeholder="Cấu hình..."
+                                value={spec.group_name}
+                                onChange={(e) => updateSpecField(index, 'group_name', e.target.value)}
+                                className="w-full bg-transparent focus:bg-white border-transparent focus:border-blue-300 px-2 py-1.5 rounded text-sm outline-none transition"
+                            />
+                        </td>
+                        <td className="px-4 py-2">
+                            <input
+                                type="text"
+                                placeholder="RAM, CPU..."
+                                value={spec.spec_key}
+                                onChange={(e) => updateSpecField(index, 'spec_key', e.target.value)}
+                                className="w-full bg-transparent focus:bg-white border-transparent focus:border-blue-300 px-2 py-1.5 rounded text-sm outline-none transition font-medium text-gray-700"
+                            />
+                        </td>
+                        <td className="px-4 py-2">
+                            <input
+                                type="text"
+                                placeholder="8GB, Apple M1..."
+                                value={spec.spec_value}
+                                onChange={(e) => updateSpecField(index, 'spec_value', e.target.value)}
+                                className="w-full bg-transparent focus:bg-white border-transparent focus:border-blue-300 px-2 py-1.5 rounded text-sm outline-none transition"
+                            />
+                        </td>
+                        <td className="px-4 py-2 text-center">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const newSpecs = [...specs];
+                                    newSpecs.splice(index, 1);
+                                    setSpecs(newSpecs);
+                                }}
+                                disabled={specs.length <= 1}
+                                className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                                title="Xóa dòng này"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" size="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-5 h-5">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d=" orbit-close 19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                            </button>
+                        </td>
+                    </tr>
+                ))}
+            </tbody>
+        </table>
+    </div>
+
+    {/* Footer Actions */}
+    <div className="p-4 bg-gray-50 border-t flex gap-3">
+        <button
+            type="button"
+            onClick={() => {
+                const lastSpec = specs[specs.length - 1];
+                setSpecs([...specs, { group_name: lastSpec?.group_name || '', spec_key: '', spec_value: '' }]);
+            }}
+            className="flex-1 flex justify-center items-center gap-2 bg-white border border-gray-300 hover:border-green-500 hover:text-green-600 text-gray-600 px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm"
+        >
+            <span>+ Thêm dòng (Cùng nhóm)</span>
+        </button>
+
+        <button
+            type="button"
+            onClick={() => setSpecs([...specs, { group_name: '', spec_key: '', spec_value: '' }])}
+            className="flex-1 flex justify-center items-center gap-2 bg-white border border-gray-300 hover:border-indigo-500 hover:text-indigo-600 text-gray-600 px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm"
+        >
+            <span>+ Thêm nhóm mới</span>
+        </button>
+    </div>
+</div>
                         <button
                             type="submit"
                             className="col-span-1 md:col-span-2 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"

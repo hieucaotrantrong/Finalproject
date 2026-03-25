@@ -6,6 +6,12 @@ import Footers from "./Footers";
 import { useCart } from "../context/CartContext";
 import Carousel from "./Carousel";
 import CartItem from "./CartItem";
+import { ChevronDown, ChevronUp } from 'lucide-react';
+
+const SIDE_PREFIX = "side::";
+
+const isSideBanner = (imageUrl = "") => imageUrl.startsWith(SIDE_PREFIX);
+const toDisplayImageUrl = (imageUrl = "") => imageUrl.replace(SIDE_PREFIX, "");
 
 const formatPrice = (price) => {
     const numPrice = Math.floor(parseFloat(price));
@@ -46,6 +52,15 @@ const ProductDetail = () => {
     const [comment, setComment] = useState("");
     const [canReview, setCanReview] = useState(false);
     const [accessoryProducts, setAccessoryProducts] = useState([]);
+    const [openSpecGroups, setOpenSpecGroups] = useState({});
+    const [sideBanner, setSideBanner] = useState(null);
+
+    const toggleSpecGroup = (groupName) => {
+        setOpenSpecGroups((prev) => ({
+            ...prev,
+            [groupName]: !prev[groupName]
+        }));
+    };
 
     const fetchReviews = useCallback(async (productId) => {
         try {
@@ -181,6 +196,18 @@ const ProductDetail = () => {
         fetchAccessoryProducts();
     }, [id]);
 
+    useEffect(() => {
+        fetch("http://localhost:5000/api/banners")
+            .then((res) => res.json())
+            .then((data) => {
+                if (Array.isArray(data)) {
+                    const firstSideBanner = data.find((item) => isSideBanner(item.image_url));
+                    setSideBanner(firstSideBanner || null);
+                }
+            })
+            .catch(() => setSideBanner(null));
+    }, []);
+
     // Xử lý phím mũi tên điều hướng ảnh
     useEffect(() => {
         const handleKeyDown = (e) => {
@@ -246,10 +273,56 @@ const ProductDetail = () => {
     if (!product) return null;
 
     const mainImage = selectedImage || getImageSrc(product.image);
+    const resolveBannerSrc = (banner) => {
+        const cleanImageUrl = toDisplayImageUrl(banner?.image_url || "");
+
+        if (!cleanImageUrl) {
+            return "/assets/bannerngang.png";
+        }
+
+        if (
+            cleanImageUrl.startsWith("http://") ||
+            cleanImageUrl.startsWith("https://") ||
+            cleanImageUrl.startsWith("/")
+        ) {
+            return cleanImageUrl;
+        }
+
+        return `/assets/${cleanImageUrl}`;
+    };
+
+    const sideBannerSrc = resolveBannerSrc(sideBanner);
+    const groupedSpecs = (Array.isArray(product.specs) ? product.specs : []).reduce((acc, spec) => {
+        const key = spec?.group_name || "Thông tin chung";
+        if (!acc[key]) {
+            acc[key] = [];
+        }
+        acc[key].push(spec);
+        return acc;
+    }, {});
+    const hasSpecs = Object.keys(groupedSpecs).length > 0;
 
     return (
         <div className="min-h-screen bg-gray-50">
             <Home />
+
+            <div className="hidden xl:block fixed left-3 top-[190px] z-40">
+                <img
+                    src={sideBannerSrc}
+                    alt="Left side banner"
+                    className="w-[110px] h-[330px] rounded-lg object-cover"
+                />
+            </div>
+
+            <div className="hidden xl:block fixed right-3 top-[190px] z-40">
+                <img
+                    src={sideBannerSrc}
+                    alt="Right side banner"
+                    className="w-[110px] h-[330px] rounded-lg object-cover"
+                />
+            </div>
+
+            <Carousel />
 
             <section className="py-8 bg-white">
                 <div className="max-w-screen-xl px-4 mx-auto">
@@ -282,7 +355,6 @@ const ProductDetail = () => {
                                     />
                                 ))}
                             </div>
-                           
                         </div>
 
                         <div className="mt-6 sm:mt-8 lg:mt-0">
@@ -338,13 +410,66 @@ const ProductDetail = () => {
                                 Hãy mua ngay chúng tôi luôn bán những sản phẩm tốt nhất trong
                                 thị trường hiện nay.
                             </p>
-                            
+
                         </div>  
                               
 
                     </div>
                 </div>
             </section>
+
+            {/* ================= THÔNG SỐ KỸ THUẬT ================= */}
+            {/* ================= THÔNG SỐ KỸ THUẬT ================= */}
+<section className="max-w-screen-xl mx-auto px-4 mt-8 bg-white p-6 rounded shadow-sm">
+    <h3 className="text-xl font-semibold mb-6">Thông số kỹ thuật</h3>
+
+    {hasSpecs ? (
+        Object.entries(groupedSpecs).map(([group, items]) => {
+            const isOpen = Boolean(openSpecGroups[group]);
+
+            return (
+                <div key={group} className="mb-0 border-b border-gray-100 last:border-none">
+                    {/* Nút bấm: Bỏ bg-gray-50, dùng text-gray-700 để chữ nhạt hơn */}
+                    <button
+                        type="button"
+                        onClick={() => toggleSpecGroup(group)}
+                        className="w-full flex justify-between items-center py-4 bg-white hover:text-yellow-600 transition-colors group"
+                    >
+                        <span className="text-[15px] font-medium text-gray-700 group-hover:text-yellow-600">
+                            {group}
+                        </span>
+                        <div className="text-gray-400">
+                            {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                        </div>
+                    </button>
+
+                    {/* Nội dung bên trong */}
+                    {isOpen && (
+                        <div className="bg-white pb-4 animate-fadeIn">
+                            {items.map((spec, idx) => (
+                                <div
+                                    key={idx}
+                                    className="flex justify-between py-2 text-[14px] leading-6"
+                                >
+                                    {/* Chữ bên trái nhạt, bên phải đậm vừa phải */}
+                                    <span className="text-gray-500 w-1/2">{spec.spec_key}</span>
+                                    <span className="text-gray-800 w-1/2 text-left pl-4 font-normal">
+                                        {spec.spec_value}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            );
+        })
+    ) : (
+        <div className="text-sm text-gray-400 italic">
+            Chưa có thông số kỹ thuật cho sản phẩm này.
+        </div>
+    )}
+</section>
+
 {/* ================= REVIEW ================= */}
 <div className="max-w-screen-xl mx-auto px-4 mt-10 bg-white p-6 rounded">
     <h2 className="text-xl font-semibold mb-4">Đánh giá sản phẩm</h2>

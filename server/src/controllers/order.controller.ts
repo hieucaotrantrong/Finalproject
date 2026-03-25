@@ -204,6 +204,132 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
 };
 
 /*-----------------------------------------
+  User cancel own pending order
+-------------------------------------------*/
+export const cancelUserOrder = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const userId = req.user?.userId;
+
+        if (!userId) {
+            res.status(401).json({ error: 'Không tìm thấy thông tin người dùng' });
+            return;
+        }
+
+        const userResult = await pool.query(
+            `SELECT email FROM users WHERE id = $1`,
+            [userId]
+        );
+
+        const userEmail = userResult.rows[0]?.email;
+        if (!userEmail) {
+            res.status(404).json({ error: 'Không tìm thấy người dùng' });
+            return;
+        }
+
+        const orderResult = await pool.query(
+            `SELECT * FROM orders WHERE id = $1`,
+            [id]
+        );
+
+        if (orderResult.rows.length === 0) {
+            res.status(404).json({ error: 'Không tìm thấy đơn hàng' });
+            return;
+        }
+
+        const order = orderResult.rows[0];
+
+        if (order.email !== userEmail) {
+            res.status(403).json({ error: 'Bạn không có quyền thao tác đơn hàng này' });
+            return;
+        }
+
+        if (order.status !== 'pending') {
+            res.status(400).json({ error: 'Chỉ có thể hủy đơn ở trạng thái chờ xác nhận' });
+            return;
+        }
+
+        await pool.query(
+            `UPDATE orders SET status = 'cancelled' WHERE id = $1`,
+            [id]
+        );
+
+        await pool.query(
+            `INSERT INTO notifications (user_email, title, message, is_read)
+             VALUES ($1, $2, $3, FALSE)`,
+            [
+                order.email,
+                `Đơn hàng ${order.product_title}`,
+                'Bạn đã hủy đơn hàng thành công.'
+            ]
+        );
+
+        res.json({ message: 'Hủy đơn hàng thành công' });
+    } catch (error) {
+        console.error('Lỗi khi user hủy đơn:', error);
+        res.status(500).json({ error: 'Lỗi server' });
+    }
+};
+
+/*-----------------------------------------
+  User delete own completed/cancelled order
+-------------------------------------------*/
+export const deleteUserOrder = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const userId = req.user?.userId;
+
+        if (!userId) {
+            res.status(401).json({ error: 'Không tìm thấy thông tin người dùng' });
+            return;
+        }
+
+        const userResult = await pool.query(
+            `SELECT email FROM users WHERE id = $1`,
+            [userId]
+        );
+
+        const userEmail = userResult.rows[0]?.email;
+        if (!userEmail) {
+            res.status(404).json({ error: 'Không tìm thấy người dùng' });
+            return;
+        }
+
+        const orderResult = await pool.query(
+            `SELECT * FROM orders WHERE id = $1`,
+            [id]
+        );
+
+        if (orderResult.rows.length === 0) {
+            res.status(404).json({ error: 'Không tìm thấy đơn hàng' });
+            return;
+        }
+
+        const order = orderResult.rows[0];
+
+        if (order.email !== userEmail) {
+            res.status(403).json({ error: 'Bạn không có quyền thao tác đơn hàng này' });
+            return;
+        }
+
+        if (!['completed', 'cancelled'].includes(order.status)) {
+            res.status(400).json({ error: 'Chỉ được xóa đơn đã giao hoặc đã hủy' });
+            return;
+        }
+
+        await pool.query(
+            `DELETE FROM orders WHERE id = $1`,
+            [id]
+        );
+
+        res.json({ message: 'Xóa đơn hàng thành công' });
+    } catch (error) {
+        console.error('Lỗi khi user xóa đơn:', error);
+        res.status(500).json({ error: 'Lỗi server' });
+    }
+};
+
+/*-----------------------------------------
   Get user orders
 -------------------------------------------*/
 export const getUserOrders = async (req: Request, res: Response): Promise<void> => {
@@ -211,7 +337,11 @@ export const getUserOrders = async (req: Request, res: Response): Promise<void> 
         const { email } = req.params;
 
         const result = await pool.query(
-            `SELECT * FROM orders WHERE email = $1 ORDER BY created_at DESC`,
+            `SELECT o.*, p.image AS product_image
+             FROM orders o
+             LEFT JOIN products p ON p.id = o.product_id
+             WHERE o.email = $1
+             ORDER BY o.created_at DESC`,
             [email]
         );
 

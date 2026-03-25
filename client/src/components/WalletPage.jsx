@@ -1,11 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import Home from './Home';
+import Carousel from './Carousel';
 import { FaWallet, FaCreditCard, FaHistory } from 'react-icons/fa';
 import Footers from './Footers';
 
+const SIDE_PREFIX = "side::";
+
+const isSideBanner = (imageUrl = "") => imageUrl.startsWith(SIDE_PREFIX);
+const toDisplayImageUrl = (imageUrl = "") => imageUrl.replace(SIDE_PREFIX, "");
+
 const WalletPage = () => {
     const [wallet, setWallet] = useState(null);
+    const [sideBanner, setSideBanner] = useState(null);
     const [showDepositForm, setShowDepositForm] = useState(false);
     const [showHistory, setShowHistory] = useState(false);
     const [depositAmount, setDepositAmount] = useState('');
@@ -27,6 +34,38 @@ const WalletPage = () => {
     const selectAmount = (amount) => {
         setDepositAmount(amount.toString());
     };
+
+    useEffect(() => {
+        fetch("http://localhost:5000/api/banners")
+            .then(res => res.json())
+            .then(data => {
+                if (Array.isArray(data)) {
+                    const firstSideBanner = data.find((item) => isSideBanner(item.image_url));
+                    setSideBanner(firstSideBanner || null);
+                }
+            })
+            .catch(err => console.log("Lỗi fetch banner:", err));
+    }, []);
+
+    const resolveBannerSrc = (banner) => {
+        const cleanImageUrl = toDisplayImageUrl(banner?.image_url || "");
+
+        if (!cleanImageUrl) {
+            return "/assets/bannerngang.png";
+        }
+
+        if (
+            cleanImageUrl.startsWith("http://") ||
+            cleanImageUrl.startsWith("https://") ||
+            cleanImageUrl.startsWith("/")
+        ) {
+            return cleanImageUrl;
+        }
+
+        return `/assets/${cleanImageUrl}`;
+    };
+
+    const sideBannerSrc = resolveBannerSrc(sideBanner);
 
     // ✅ chỉnh lại để bật popup thay vì alert
     const handleDeposit = async () => {
@@ -89,6 +128,26 @@ const WalletPage = () => {
     return (
         <div className="min-h-screen bg-gradient-to-b from-yellow-50 via-white to-blue-50">
             <Home />
+
+            {/* Side Banners */}
+            <div className="hidden xl:block fixed left-3 top-[190px] z-40">
+                <img
+                    src={sideBannerSrc}
+                    alt="Left side banner"
+                    className="w-[110px] h-[330px] rounded-lg object-cover"
+                />
+            </div>
+
+            <div className="hidden xl:block fixed right-3 top-[190px] z-40">
+                <img
+                    src={sideBannerSrc}
+                    alt="Right side banner"
+                    className="w-[110px] h-[330px] rounded-lg object-cover"
+                />
+            </div>
+
+            {/* Carousel Banner */}
+            <Carousel />
 
             <div className="max-w-7xl mx-auto p-8">
                 {/* Header */}

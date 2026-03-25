@@ -1,83 +1,70 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import Home from "./Home";
 import Footers from "./Footers";
+import Carousel from "./Carousel";
+import { useCart } from "../context/CartContext";
 
-const STORE_REGION = "central";
+const API_BASE_URL = "http://localhost:5000/api";
 
-const REGION_LABELS = {
-    north: "Miền Bắc",
-    central: "Miền Trung",
-    south: "Miền Nam"
-};
+const SIDE_PREFIX = "side::";
 
-const SHIPPING_FEE_BY_REGION = {
-    north: 40000,
-    central: 20000,
-    south: 30000
-};
+const isSideBanner = (imageUrl = "") => imageUrl.startsWith(SIDE_PREFIX);
+const toDisplayImageUrl = (imageUrl = "") => imageUrl.replace(SIDE_PREFIX, "");
 
-const REGION_PROVINCE_CSV = {
-    north: "Lào Cai,Yên Bái,Điện Biên,Hòa Bình,Lai Châu,Sơn La,Hà Giang,Cao Bằng,Bắc Kạn,Lạng Sơn,Tuyên Quang,Thái Nguyên,Phú Thọ,Bắc Giang,Quảng Ninh,Hà Nội,Vĩnh Phúc,Bắc Ninh,Hải Dương,Hải Phòng,Hưng Yên,Hà Nam,Nam Định,Thái Bình,Ninh Bình",
-    central: "Thanh Hóa,Nghệ An,Hà Tĩnh,Quảng Bình,Quảng Trị,Thừa Thiên - Huế,Đà Nẵng,Quảng Nam,Quảng Ngãi,Bình Định,Phú Yên,Khánh Hòa,Ninh Thuận,Bình Thuận,Kon Tum,Gia Lai,Đắk Lắk,Đắk Nông,Lâm Đồng",
-    south: "TP. Hồ Chí Minh,Đồng Nai,Bà Rịa - Vũng Tàu,Bình Dương,Bình Phước,Tây Ninh,Cần Thơ,Long An,Tiền Giang,Bến Tre,Vĩnh Long,Trà Vinh,Hậu Giang,Sóc Trăng,Đồng Tháp,An Giang,Kiên Giang,Bạc Liêu,Cà Mau"
-};
-
-const normalizeProvince = (value = "") => {
+const normalizeLocationText = (value = "") => {
     return value
         .toLowerCase()
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
         .replace(/đ/g, "d")
-        .replace(/tp\.?/g, "thanh pho")
-    .replace(/thanh pho\s*ho\s*chi\s*minh/g, "ho chi minh")
-    .replace(/thanh pho\s*ha\s*noi/g, "ha noi")
-    .replace(/thanh pho/g, "")
-        .replace(/tinh/g, "")
+        .replace(/thanh pho|tp\.?/g, "")
+        .replace(/quan|huyen|thi xa|thi tran|phuong|xa|tinh/g, "")
         .replace(/-/g, " ")
-    .replace(/\./g, " ")
+        .replace(/\./g, " ")
         .replace(/\s+/g, " ")
         .trim();
 };
 
-const REGION_BY_PROVINCE = Object.entries(REGION_PROVINCE_CSV).reduce((acc, [region, csv]) => {
-    csv.split(",").forEach((name) => {
-        acc[normalizeProvince(name)] = region;
-    });
-    return acc;
-}, {});
+const findBestLocationMatch = (items = [], getName, target = "") => {
+    const normalizedTarget = normalizeLocationText(target);
+    if (!normalizedTarget) return null;
 
-const detectRegionFromAddress = (address = "", provinces = []) => {
-    const normalizedAddress = normalizeProvince(address);
-    if (!normalizedAddress) return null;
+    return items.find((item) => {
+        const normalizedName = normalizeLocationText(getName(item));
+        return (
+            normalizedName === normalizedTarget ||
+            normalizedName.includes(normalizedTarget) ||
+            normalizedTarget.includes(normalizedName)
+        );
+    }) || null;
+};
 
-    const addressParts = normalizedAddress
+const parseAddressParts = (address = "") => {
+    const parts = address
         .split(",")
         .map((part) => part.trim())
         .filter(Boolean);
 
-    const candidates = [
-        normalizedAddress,
-        ...addressParts,
-        ...addressParts.slice(-2).map((part) => part)
-    ];
+    if (parts.length < 3) {
+        return null;
+    }
 
-    const matchedProvince = provinces.find((province) => {
-        const provinceName = normalizeProvince(province.name || "");
-        return candidates.some((candidate) =>
-            candidate.includes(provinceName) || provinceName.includes(candidate)
-        );
-    });
-
-    if (!matchedProvince?.name) return null;
-    return REGION_BY_PROVINCE[normalizeProvince(matchedProvince.name)] || null;
+    return {
+        ward: parts[parts.length - 3],
+        district: parts[parts.length - 2],
+        province: parts[parts.length - 1]
+    };
 };
 
 const CartPayPage = () => {
     const location = useLocation();
+    const navigate = useNavigate();
+    const { clearCart } = useCart();
     const { cartItems, totalPrice, isMultipleItems, ...product } = location.state || {};
 
+    const [sideBanner, setSideBanner] = useState(null);
     const [fullName, setFullName] = useState("");
     const [email, setEmail] = useState("");
     const [phone, setPhone] = useState("");
@@ -86,8 +73,50 @@ const CartPayPage = () => {
     const [paymentMethod, setPaymentMethod] = useState("cod"); // "cod" hoặc "wallet"
     const [wallet, setWallet] = useState(null);
     const [shippingFee, setShippingFee] = useState(0);
-    const [customerRegion, setCustomerRegion] = useState(null);
+    const [shippingServiceFee, setShippingServiceFee] = useState(0);
+    const [shippingInsuranceFee, setShippingInsuranceFee] = useState(0);
+    const [shippingFeeStatus, setShippingFeeStatus] = useState("idle");
+    const [shippingFeeMessage, setShippingFeeMessage] = useState("");
     const [provinces, setProvinces] = useState([]);
+    const [districts, setDistricts] = useState([]);
+    const [wards, setWards] = useState([]);
+    const [selectedProvinceId, setSelectedProvinceId] = useState("");
+    const [selectedDistrictId, setSelectedDistrictId] = useState("");
+    const [selectedWardCode, setSelectedWardCode] = useState("");
+    const [isMetaLoading, setIsMetaLoading] = useState(false);
+    const [metaError, setMetaError] = useState("");
+
+    useEffect(() => {
+        fetch("http://localhost:5000/api/banners")
+            .then(res => res.json())
+            .then(data => {
+                if (Array.isArray(data)) {
+                    const firstSideBanner = data.find((item) => isSideBanner(item.image_url));
+                    setSideBanner(firstSideBanner || null);
+                }
+            })
+            .catch(err => console.log("Lỗi fetch banner:", err));
+    }, []);
+
+    const resolveBannerSrc = (banner) => {
+        const cleanImageUrl = toDisplayImageUrl(banner?.image_url || "");
+
+        if (!cleanImageUrl) {
+            return "/assets/bannerngang.png";
+        }
+
+        if (
+            cleanImageUrl.startsWith("http://") ||
+            cleanImageUrl.startsWith("https://") ||
+            cleanImageUrl.startsWith("/")
+        ) {
+            return cleanImageUrl;
+        }
+
+        return `/assets/${cleanImageUrl}`;
+    };
+
+    const sideBannerSrc = resolveBannerSrc(sideBanner);
     const lastSyncedAddressRef = useRef("");
 
     const syncAddressFromStorage = () => {
@@ -122,12 +151,7 @@ const CartPayPage = () => {
         }
 
         fetchWalletInfo();
-
-        axios.get('https://provinces.open-api.vn/api/p/')
-            .then((response) => {
-                setProvinces(response.data || []);
-            })
-            .catch(() => setProvinces([]));
+        loadGhnProvinces();
     }, []);
 
     useEffect(() => {
@@ -151,13 +175,28 @@ const CartPayPage = () => {
         try {
             const token = localStorage.getItem('token');
             if (token) {
-                const response = await axios.get('http://localhost:5000/api/wallet', {
+                const response = await axios.get(`${API_BASE_URL}/wallet`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setWallet(response.data.wallet);
             }
         } catch (error) {
             console.error('Lỗi lấy thông tin ví:', error);
+        }
+    };
+
+    const loadGhnProvinces = async () => {
+        try {
+            setIsMetaLoading(true);
+            setMetaError("");
+            const response = await axios.get(`${API_BASE_URL}/shipping/provinces`);
+            setProvinces(response.data?.data || []);
+        } catch (error) {
+            console.error('Lỗi lấy tỉnh/thành GHN:', error);
+            setMetaError("Không tải được danh sách tỉnh/thành để tính phí ship.");
+            setProvinces([]);
+        } finally {
+            setIsMetaLoading(false);
         }
     };
 
@@ -174,11 +213,116 @@ const CartPayPage = () => {
         return getTotalAmount() + shippingFee;
     };
 
+    const selectedProvince = provinces.find((item) => String(item.ProvinceID) === String(selectedProvinceId));
+    const selectedDistrict = districts.find((item) => String(item.DistrictID) === String(selectedDistrictId));
+    const selectedWard = wards.find((item) => String(item.WardCode) === String(selectedWardCode));
+
+    const getEstimatedWeight = () => {
+        if (isMultipleItems) {
+            const totalQuantity = (cartItems || []).reduce((sum, item) => sum + Number(item.quantity || 1), 0);
+            return Math.max(totalQuantity, 1) * 500;
+        }
+
+        return 500;
+    };
+
     useEffect(() => {
-        const region = detectRegionFromAddress(address, provinces);
-        setCustomerRegion(region);
-        setShippingFee(region ? SHIPPING_FEE_BY_REGION[region] || 0 : 0);
-    }, [address, provinces]);
+        if (!address?.trim()) {
+            setShippingFee(0);
+            setShippingServiceFee(0);
+            setShippingInsuranceFee(0);
+            setShippingFeeStatus("idle");
+            setShippingFeeMessage("Vui lòng nhập địa chỉ nhận hàng để tính phí vận chuyển.");
+         
+            setMetaError("");
+            return;
+        }
+
+        if (!provinces.length) {
+            setShippingFeeStatus("loading");
+            setShippingFeeMessage("Đang tải dữ liệu GHN...");
+       
+            return;
+        }
+
+        const timer = setTimeout(async () => {
+            try {
+                setIsMetaLoading(true);
+                setMetaError("");
+                setShippingFeeStatus("loading");
+                setShippingFeeMessage("Đang nhận diện địa chỉ và tính phí vận chuyển theo GHN...");
+             
+                const parsed = parseAddressParts(address);
+                if (!parsed) {
+                    throw new Error("Địa chỉ cần có dạng: Phường/Xã, Quận/Huyện, Tỉnh/Thành.");
+                }
+
+                const province = findBestLocationMatch(provinces, (item) => item.ProvinceName, parsed.province);
+                if (!province) {
+                    throw new Error("Không nhận diện được tỉnh/thành từ địa chỉ.");
+                }
+
+                const districtsResponse = await axios.post(`${API_BASE_URL}/shipping/districts`, {
+                    provinceId: Number(province.ProvinceID)
+                });
+
+                const districtList = districtsResponse.data?.data || [];
+                setDistricts(districtList);
+
+                const district = findBestLocationMatch(districtList, (item) => item.DistrictName, parsed.district);
+                if (!district) {
+                    throw new Error("Không nhận diện được quận/huyện từ địa chỉ.");
+                }
+
+                const wardsResponse = await axios.post(`${API_BASE_URL}/shipping/wards`, {
+                    districtId: Number(district.DistrictID)
+                });
+
+                const wardList = wardsResponse.data?.data || [];
+                setWards(wardList);
+
+                const ward = findBestLocationMatch(wardList, (item) => item.WardName, parsed.ward);
+                if (!ward) {
+                    throw new Error("Không nhận diện được phường/xã từ địa chỉ.");
+                }
+
+                setSelectedProvinceId(String(province.ProvinceID));
+                setSelectedDistrictId(String(district.DistrictID));
+                setSelectedWardCode(String(ward.WardCode));
+
+                const response = await axios.post(`${API_BASE_URL}/shipping/fee`, {
+                    toDistrictId: Number(district.DistrictID),
+                    toWardCode: String(ward.WardCode),
+                    insuranceValue: Number(getTotalAmount() || 0),
+                    weight: getEstimatedWeight(),
+                    length: 20,
+                    width: 15,
+                    height: 10
+                });
+
+                const feeBreakdown = response.data?.breakdown || {};
+                setShippingFee(Number(response.data?.shippingFee || 0));
+                setShippingServiceFee(Number(feeBreakdown.service_fee || 0));
+                setShippingInsuranceFee(Number(feeBreakdown.insurance_fee || 0));
+                setShippingFeeStatus("success");
+           
+
+            } catch (error) {
+                console.error('Lỗi tính phí ship GHN:', error);
+                setShippingFee(0);
+                setShippingServiceFee(0);
+                setShippingInsuranceFee(0);
+                setShippingFeeStatus("error");
+                const errorMessage = error?.response?.data?.message || error?.message || "Không tính được phí GHN.";
+                setMetaError(errorMessage);
+                setShippingFeeMessage("Không tính được phí GHN. Vui lòng kiểm tra định dạng địa chỉ nhận hàng.");
+            } finally {
+                setIsMetaLoading(false);
+            }
+        }, 350);
+
+        return () => clearTimeout(timer);
+    }, [address, provinces, totalPrice, product?.price, isMultipleItems]);
 
     const handleOrder = async () => {
         if (!fullName || !phone || !address || !email) {
@@ -195,6 +339,11 @@ const CartPayPage = () => {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
             alert("Email không hợp lệ.");
+            return;
+        }
+
+        if (shippingFeeStatus !== "success") {
+            alert("Chưa tính được phí vận chuyển GHN từ địa chỉ nhận hàng. Vui lòng kiểm tra lại địa chỉ.");
             return;
         }
 
@@ -215,7 +364,7 @@ const CartPayPage = () => {
             if (isMultipleItems) {
                 // Xử lý nhiều sản phẩm
                 for (const item of cartItems) {
-                    await axios.post("http://localhost:5000/api/orders", {
+                    await axios.post(`${API_BASE_URL}/orders`, {
                         fullName,
                         email,
                         phone,
@@ -226,8 +375,9 @@ const CartPayPage = () => {
                         quantity: item.quantity,
                         paymentMethod,
                         shippingFee,
-                        shippingRegion: customerRegion,
-                        storeRegion: STORE_REGION
+                        shippingRegion: selectedProvince?.ProvinceName || null,
+                        shippingDistrict: selectedDistrict?.DistrictName || null,
+                        shippingWard: selectedWard?.WardName || null
                     }, {
                         headers: {
                             'Authorization': `Bearer ${token}` // Thêm header
@@ -236,7 +386,7 @@ const CartPayPage = () => {
                 }
             } else {
                 // Xử lý 1 sản phẩm
-                await axios.post("http://localhost:5000/api/orders", {
+                await axios.post(`${API_BASE_URL}/orders`, {
                     fullName,
                     email,
                     phone,
@@ -246,8 +396,9 @@ const CartPayPage = () => {
                     productPrice: product.price,
                     paymentMethod,
                     shippingFee,
-                    shippingRegion: customerRegion,
-                    storeRegion: STORE_REGION
+                    shippingRegion: selectedProvince?.ProvinceName || null,
+                    shippingDistrict: selectedDistrict?.DistrictName || null,
+                    shippingWard: selectedWard?.WardName || null
                 }, {
                     headers: {
                         'Authorization': `Bearer ${token}` // Thêm header
@@ -269,6 +420,13 @@ const CartPayPage = () => {
             if (paymentMethod === "wallet") {
                 fetchWalletInfo();
             }
+
+            // Đặt thành công từ giỏ hàng thì xóa giỏ để tránh hiển thị lại đơn cũ
+            if (isMultipleItems) {
+                clearCart();
+            }
+
+            navigate('/orders');
         } catch (err) {
             console.error('Chi tiết lỗi:', err.response?.data); // Xem lỗi chi tiết
             alert("Đặt hàng thất bại. Vui lòng thử lại.");
@@ -286,6 +444,26 @@ const CartPayPage = () => {
     return (
         <div className="min-h-screen bg-gray-50">
             <Home />
+
+            {/* Side Banners */}
+            <div className="hidden xl:block fixed left-3 top-[190px] z-40">
+                <img
+                    src={sideBannerSrc}
+                    alt="Left side banner"
+                    className="w-[110px] h-[330px] rounded-lg object-cover"
+                />
+            </div>
+
+            <div className="hidden xl:block fixed right-3 top-[190px] z-40">
+                <img
+                    src={sideBannerSrc}
+                    alt="Right side banner"
+                    className="w-[110px] h-[330px] rounded-lg object-cover"
+                />
+            </div>
+
+            {/* Carousel Banner */}
+            <Carousel />
 
             <div className="p-4 max-w-6xl mx-auto">
                 <h1 className="text-3xl font-bold mb-6 text-center">Thanh Toán Đơn Hàng</h1>
@@ -384,6 +562,12 @@ const CartPayPage = () => {
                                 />
                             </div>
 
+                          
+
+                            {metaError && (
+                                <div className="text-sm text-red-600">{metaError}</div>
+                            )}
+
                             {/* Phương thức thanh toán */}
                             <div>
                                 <label className="block text-lg font-medium mb-4">Phương thức thanh toán</label>
@@ -446,7 +630,7 @@ const CartPayPage = () => {
                                                         </span>
                                                     </p>
                                                 </div>
-                                                {wallet && wallet.balance < getTotalAmount() && (
+                                                {wallet && wallet.balance < getGrandTotal() && (
                                                     <div className="text-red-500 text-sm font-medium">
                                                         Không đủ số dư
                                                     </div>
@@ -467,8 +651,18 @@ const CartPayPage = () => {
                                     <span className="text-base text-gray-700">Phí vận chuyển:</span>
                                     <span className="font-semibold text-orange-600">{formatPrice(shippingFee)}₫</span>
                                 </div>
+                                <div className="flex justify-between items-center mb-1 text-sm text-gray-600">
+                                    <span>Phí vận chuyển cơ bản:</span>
+                                    <span>{formatPrice(shippingServiceFee)}₫</span>
+                                </div>
+                                <div className="flex justify-between items-center mb-2 text-sm text-gray-600">
+                                    <span>Phí bảo hiểm hàng hóa:</span>
+                                    <span>{formatPrice(shippingInsuranceFee)}₫</span>
+                                </div>
                                 <div className="text-sm text-gray-600 mb-3">
-                                    Kho gửi: {REGION_LABELS[STORE_REGION]} | Khu vực nhận: {customerRegion ? REGION_LABELS[customerRegion] : "Chưa xác định tỉnh/thành"}
+                                    Địa chỉ nhận hàng : {selectedProvince?.ProvinceName || "Chưa chọn tỉnh/thành"}
+                                    {selectedDistrict?.DistrictName ? `, ${selectedDistrict.DistrictName}` : ""}
+                                    {selectedWard?.WardName ? `, ${selectedWard.WardName}` : ""}
                                 </div>
                                 <div className="flex justify-between items-center">
                                     <span className="text-lg font-semibold">Tổng thanh toán:</span>

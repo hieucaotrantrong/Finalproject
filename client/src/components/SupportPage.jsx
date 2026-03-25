@@ -1,12 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { IoMdClose } from "react-icons/io";
 import Home from "./Home";
 import Footers from "./Footers";
 import Carousel from "./Carousel";
 
+const SIDE_PREFIX = "side::";
+
+const isSideBanner = (imageUrl = "") => imageUrl.startsWith(SIDE_PREFIX);
+const toDisplayImageUrl = (imageUrl = "") => imageUrl.replace(SIDE_PREFIX, "");
+
 export default function SupportPage() {
     const navigate = useNavigate();
+    const [sideBanner, setSideBanner] = useState(null);
     const [formData, setFormData] = useState({
         name: "",
         email: "",
@@ -16,6 +22,38 @@ export default function SupportPage() {
 
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState("");
+
+    useEffect(() => {
+        fetch("http://localhost:5000/api/banners")
+            .then(res => res.json())
+            .then(data => {
+                if (Array.isArray(data)) {
+                    const firstSideBanner = data.find((item) => isSideBanner(item.image_url));
+                    setSideBanner(firstSideBanner || null);
+                }
+            })
+            .catch(err => console.log("Lỗi fetch banner:", err));
+    }, []);
+
+    const resolveBannerSrc = (banner) => {
+        const cleanImageUrl = toDisplayImageUrl(banner?.image_url || "");
+
+        if (!cleanImageUrl) {
+            return "/assets/bannerngang.png";
+        }
+
+        if (
+            cleanImageUrl.startsWith("http://") ||
+            cleanImageUrl.startsWith("https://") ||
+            cleanImageUrl.startsWith("/")
+        ) {
+            return cleanImageUrl;
+        }
+
+        return `/assets/${cleanImageUrl}`;
+    };
+
+    const sideBannerSrc = resolveBannerSrc(sideBanner);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -53,6 +91,24 @@ export default function SupportPage() {
         <div className="min-h-screen bg-gray-50">
             {/* Header từ Home component */}
             <Home />
+
+            {/* Side Banners */}
+            <div className="hidden xl:block fixed left-3 top-[190px] z-40">
+                <img
+                    src={sideBannerSrc}
+                    alt="Left side banner"
+                    className="w-[110px] h-[330px] rounded-lg object-cover"
+                />
+            </div>
+
+            <div className="hidden xl:block fixed right-3 top-[190px] z-40">
+                <img
+                    src={sideBannerSrc}
+                    alt="Right side banner"
+                    className="w-[110px] h-[330px] rounded-lg object-cover"
+                />
+            </div>
+
             <Carousel />
 
             {/* Support Content */}

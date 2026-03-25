@@ -1,11 +1,17 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import Home from './Home';
 import Footers from './Footers';
+import Carousel from './Carousel';
+
+const SIDE_PREFIX = "side::";
+
+const isSideBanner = (imageUrl = "") => imageUrl.startsWith(SIDE_PREFIX);
+const toDisplayImageUrl = (imageUrl = "") => imageUrl.replace(SIDE_PREFIX, "");
 
 const CartPageView = () => {
-
+    const [sideBanner, setSideBanner] = useState(null);
     const navigate = useNavigate();
 
     const {
@@ -15,6 +21,38 @@ const CartPageView = () => {
         getTotalPrice,
         clearCart
     } = useCart();
+
+    useEffect(() => {
+        fetch("http://localhost:5000/api/banners")
+            .then(res => res.json())
+            .then(data => {
+                if (Array.isArray(data)) {
+                    const firstSideBanner = data.find((item) => isSideBanner(item.image_url));
+                    setSideBanner(firstSideBanner || null);
+                }
+            })
+            .catch(err => console.log("Lỗi fetch banner:", err));
+    }, []);
+
+    const resolveBannerSrc = (banner) => {
+        const cleanImageUrl = toDisplayImageUrl(banner?.image_url || "");
+
+        if (!cleanImageUrl) {
+            return "/assets/bannerngang.png";
+        }
+
+        if (
+            cleanImageUrl.startsWith("http://") ||
+            cleanImageUrl.startsWith("https://") ||
+            cleanImageUrl.startsWith("/")
+        ) {
+            return cleanImageUrl;
+        }
+
+        return `/assets/${cleanImageUrl}`;
+    };
+
+    const sideBannerSrc = resolveBannerSrc(sideBanner);
 
     const formatPrice = (price) => {
         const numPrice = Math.floor(parseFloat(price));
@@ -56,11 +94,28 @@ const CartPageView = () => {
 
             <Home />
 
+            {/* Side Banners */}
+            <div className="hidden xl:block fixed left-3 top-[190px] z-40">
+                <img
+                    src={sideBannerSrc}
+                    alt="Left side banner"
+                    className="w-[110px] h-[330px] rounded-lg object-cover"
+                />
+            </div>
+
+            <div className="hidden xl:block fixed right-3 top-[190px] z-40">
+                <img
+                    src={sideBannerSrc}
+                    alt="Right side banner"
+                    className="w-[110px] h-[330px] rounded-lg object-cover"
+                />
+            </div>
+
+            {/* Carousel Banner */}
+            <Carousel />
+
             <div className="max-w-6xl mx-auto px-4 py-8">
 
-                <h1 className="text-3xl font-bold mb-8">
-                    Giỏ hàng của bạn
-                </h1>
 
                 {cartItems.length === 0 ? (
 
