@@ -70,8 +70,7 @@ const CartPayPage = () => {
     const [phone, setPhone] = useState("");
     const [address, setAddress] = useState(product?.userAddress || "");
     const [isLoading, setIsLoading] = useState(false);
-    const [paymentMethod, setPaymentMethod] = useState("cod"); // "cod" hoặc "wallet"
-    const [wallet, setWallet] = useState(null);
+    const [paymentMethod, setPaymentMethod] = useState("cod"); // "cod" hoặc "momo"
     const [shippingFee, setShippingFee] = useState(0);
     const [shippingServiceFee, setShippingServiceFee] = useState(0);
     const [shippingInsuranceFee, setShippingInsuranceFee] = useState(0);
@@ -150,7 +149,6 @@ const CartPayPage = () => {
             setFullName(savedName);
         }
 
-        fetchWalletInfo();
         loadGhnProvinces();
     }, []);
 
@@ -170,20 +168,6 @@ const CartPayPage = () => {
             document.removeEventListener('visibilitychange', handleFocus);
         };
     }, []);
-
-    const fetchWalletInfo = async () => {
-        try {
-            const token = localStorage.getItem('token');
-            if (token) {
-                const response = await axios.get(`${API_BASE_URL}/wallet`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                setWallet(response.data.wallet);
-            }
-        } catch (error) {
-            console.error('Lỗi lấy thông tin ví:', error);
-        }
-    };
 
     const loadGhnProvinces = async () => {
         try {
@@ -225,6 +209,9 @@ const CartPayPage = () => {
 
         return 500;
     };
+
+    const cartItemCount = Array.isArray(cartItems) ? cartItems.length : 0;
+    const hasMoreThanOneCartItem = Boolean(isMultipleItems) && cartItemCount > 1;
 
     useEffect(() => {
         if (!address?.trim()) {
@@ -347,13 +334,10 @@ const CartPayPage = () => {
             return;
         }
 
-        // Kiểm tra số dư ví nếu chọn thanh toán bằng ví
-        if (paymentMethod === "wallet") {
-            const totalAmount = getGrandTotal();
-            if (!wallet || wallet.balance < totalAmount) {
-                alert("Số dư ví không đủ để thanh toán. Vui lòng nạp thêm tiền hoặc chọn thanh toán khi nhận hàng.");
-                return;
-            }
+        // Chỉ chặn khi giỏ thật sự có nhiều hơn 1 sản phẩm
+        if (paymentMethod === "momo" && hasMoreThanOneCartItem) {
+            alert("Hiện MoMo chỉ hỗ trợ thanh toán 1 sản phẩm mỗi lần. Vui lòng thanh toán từng sản phẩm.");
+            return;
         }
 
         setIsLoading(true);
@@ -362,9 +346,9 @@ const CartPayPage = () => {
             const token = localStorage.getItem('token'); // Thêm dòng này
 
             if (isMultipleItems) {
-                // Xử lý nhiều sản phẩm
+                // Xử lý đơn từ giỏ hàng
                 for (const item of cartItems) {
-                    await axios.post(`${API_BASE_URL}/orders`, {
+                    const response = await axios.post(`${API_BASE_URL}/orders`, {
                         fullName,
                         email,
                         phone,
@@ -383,10 +367,22 @@ const CartPayPage = () => {
                             'Authorization': `Bearer ${token}` // Thêm header
                         }
                     });
+
+                    if (paymentMethod === "momo") {
+                        const payUrl = response?.data?.payUrl;
+                        if (!payUrl) {
+                            const momoError = response?.data?.momoMessage || "Không nhận được link thanh toán MoMo từ server.";
+                            alert(`Không thể chuyển sang MoMo: ${momoError}`);
+                            return;
+                        }
+
+                        window.location.href = payUrl;
+                        return;
+                    }
                 }
             } else {
                 // Xử lý 1 sản phẩm
-                await axios.post(`${API_BASE_URL}/orders`, {
+                const response = await axios.post(`${API_BASE_URL}/orders`, {
                     fullName,
                     email,
                     phone,
@@ -404,10 +400,22 @@ const CartPayPage = () => {
                         'Authorization': `Bearer ${token}` // Thêm header
                     }
                 });
+
+                if (paymentMethod === "momo") {
+                    const payUrl = response?.data?.payUrl;
+                    if (!payUrl) {
+                        const momoError = response?.data?.momoMessage || "Không nhận được link thanh toán MoMo từ server.";
+                        alert(`Không thể chuyển sang MoMo: ${momoError}`);
+                        return;
+                    }
+
+                    window.location.href = payUrl;
+                    return;
+                }
             }
 
-            alert(paymentMethod === "wallet"
-                ? "Đặt hàng và thanh toán thành công! Số tiền đã được trừ từ ví."
+            alert(paymentMethod === "momo"
+                ? "Đơn hàng đã tạo. Đang chuyển sang cổng thanh toán MoMo..."
                 : "Đặt hàng thành công! Bạn sẽ thanh toán khi nhận hàng."
             );
 
@@ -416,11 +424,6 @@ const CartPayPage = () => {
             setPhone("");
             setAddress("");
 
-            // Refresh wallet info nếu thanh toán bằng ví
-            if (paymentMethod === "wallet") {
-                fetchWalletInfo();
-            }
-
             // Đặt thành công từ giỏ hàng thì xóa giỏ để tránh hiển thị lại đơn cũ
             if (isMultipleItems) {
                 clearCart();
@@ -428,8 +431,31 @@ const CartPayPage = () => {
 
             navigate('/orders');
         } catch (err) {
-            console.error('Chi tiết lỗi:', err.response?.data); // Xem lỗi chi tiết
-            alert("Đặt hàng thất bại. Vui lòng thử lại.");
+            console.error('Chi tiết lỗi:', err?.response?.data || err); // Xem lỗi chi tiết
+            const backendError = err?.response?.data;
+            let errorMessage = "Đặt hàng thất bại. Vui lòng thử lại.";
+            
+            if (backendError?.error) {
+                errorMessage = backendError.error;
+                
+                // Nếu có lỗi MoMo, thêm chi tiết subErrors
+                if (backendError.subErrors && Array.isArray(backendError.subErrors) && backendError.subErrors.length > 0) {
+                    const subErrorDetails = backendError.subErrors
+                        .map(e => `${e.errorCode}: ${e.errorDescription}`)
+                        .join("\n");
+                    errorMessage += `\n\nChi tiết lỗi:\n${subErrorDetails}`;
+                }
+            } else if (backendError?.momoMessage) {
+                errorMessage = `Lỗi MoMo: ${backendError.momoMessage}`;
+                if (backendError.subErrors && Array.isArray(backendError.subErrors) && backendError.subErrors.length > 0) {
+                    const subErrorDetails = backendError.subErrors
+                        .map(e => `${e.errorCode}: ${e.errorDescription}`)
+                        .join("\n");
+                    errorMessage += `\n\nChi tiết:\n${subErrorDetails}`;
+                }
+            }
+            
+            alert(errorMessage);
         } finally {
             setIsLoading(false);
         }
@@ -601,40 +627,33 @@ const CartPayPage = () => {
                                         </div>
                                     </div>
 
-                                    {/* Thanh toán bằng ví */}
+                                    {/* Thanh toán bằng MoMo */}
                                     <div
-                                        className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${paymentMethod === "wallet"
-                                            ? "border-purple-500 bg-purple-50"
+                                        className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${paymentMethod === "momo"
+                                            ? "border-pink-500 bg-pink-50"
                                             : "border-gray-200 hover:border-gray-300"
                                             }`}
-                                        onClick={() => setPaymentMethod("wallet")}
+                                        onClick={() => setPaymentMethod("momo")}
                                     >
                                         <div className="flex items-center gap-3">
                                             <input
                                                 type="radio"
                                                 name="paymentMethod"
-                                                value="wallet"
-                                                checked={paymentMethod === "wallet"}
-                                                onChange={() => setPaymentMethod("wallet")}
-                                                className="w-4 h-4 text-purple-600"
+                                                value="momo"
+                                                checked={paymentMethod === "momo"}
+                                                onChange={() => setPaymentMethod("momo")}
+                                                className="w-4 h-4 text-pink-600"
                                             />
                                             <div className="flex items-center gap-3 flex-1">
-                                                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                                                    <span className="text-purple-600 text-lg">💳</span>
+                                                <div className="w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center">
+                                                    <span className="text-pink-600 text-lg">📱</span>
                                                 </div>
                                                 <div className="flex-1">
-                                                    <p className="font-semibold text-gray-800">Thanh toán bằng ví điện tử</p>
+                                                    <p className="font-semibold text-gray-800">Thanh toán qua MoMo</p>
                                                     <p className="text-sm text-gray-600">
-                                                        Số dư hiện tại: <span className="font-semibold text-purple-600">
-                                                            {formatPrice(wallet?.balance || 0)}₫
-                                                        </span>
+                                                        Bạn sẽ được chuyển đến cổng MoMo để hoàn tất thanh toán.
                                                     </p>
                                                 </div>
-                                                {wallet && wallet.balance < getGrandTotal() && (
-                                                    <div className="text-red-500 text-sm font-medium">
-                                                        Không đủ số dư
-                                                    </div>
-                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -670,22 +689,20 @@ const CartPayPage = () => {
                                         {formatPrice(getGrandTotal())}₫
                                     </span>
                                 </div>
-                                {paymentMethod === "wallet" && wallet && wallet.balance >= getGrandTotal() && (
+                                {paymentMethod === "momo" && (
                                     <div className="mt-2 text-sm text-gray-600">
-                                        Số dư còn lại sau thanh toán: <span className="font-semibold text-green-600">
-                                            {formatPrice(wallet.balance - getGrandTotal())}₫
-                                        </span>
+                                        Sau khi xác nhận đơn, hệ thống sẽ chuyển bạn đến MoMo.
                                     </div>
                                 )}
                             </div>
 
                             <button
                                 onClick={handleOrder}
-                                className={`w-full ${isLoading || (paymentMethod === "wallet" && wallet && wallet.balance < getGrandTotal())
+                                className={`w-full ${isLoading
                                     ? 'bg-gray-400 cursor-not-allowed'
                                     : 'bg-red-500 hover:bg-red-600'
                                     } text-white py-3 rounded-md text-lg transition-colors`}
-                                disabled={isLoading || (paymentMethod === "wallet" && wallet && wallet.balance < getGrandTotal())}
+                                disabled={isLoading}
                             >
                                 {isLoading ? 'Đang xử lý...' : 'Xác Nhận Đặt Hàng'}
                             </button>

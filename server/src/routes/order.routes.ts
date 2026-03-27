@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import { momoIPN } from '../controllers/order.controller';
 import {
     createOrder,
     getAllOrders,
@@ -50,5 +51,10 @@ router.put('/user/:id/cancel', auth, asyncHandler(cancelUserOrder));
    User xóa đơn đã giao/đã hủy của chính mình
 -----------------------------------*/
 router.delete('/user/:id', auth, asyncHandler(deleteUserOrder));
+
+/*----------------------------------
+   MoMo IPN (callback từ MoMo)
+-----------------------------------*/
+router.post('/momo-ipn', asyncHandler(momoIPN));
 
 export default router;

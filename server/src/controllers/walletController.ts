@@ -1,206 +1,152 @@
-    import { Request, Response } from 'express';
-    import pool from "../config/database";
-    import jwt from "jsonwebtoken";
+import { Request, Response } from "express";
+import pool from "../config/database";
+import axios from "axios";
+import crypto from "crypto";
+import { randomUUID } from "crypto";
 
-    /*-----------------------------------------
-    Create order (wallet + COD)
-    -------------------------------------------*/
-    export const createOrder = async (req: Request, res: Response): Promise<void> => {
-        try {
-            const {
-                fullName,
-                email,
-                phone,
-                address,
-                productId,
-                productTitle,
-                productPrice,
-                quantity = 1,
-                paymentMethod = "cod"
-            } = req.body;
+/*-----------------------------------------
+Create Order (COD + MoMo)
+-------------------------------------------*/
+export const createOrder = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const {
+            fullName,
+            email,
+            phone,
+            address,
+            productId,
+            productTitle,
+            productPrice,
+            quantity = 1,
+            paymentMethod = "cod"
+        } = req.body;
 
-            if (!fullName || !email || !phone || !address || !productId || !productTitle || !productPrice) {
-                res.status(400).json({ error: "Thiếu thông tin đơn hàng" });
-                return;
-            }
+        if (!fullName || !email || !phone || !address || !productId || !productTitle || !productPrice) {
+            res.status(400).json({ error: "Thiếu thông tin đơn hàng" });
+            return;
+        }
 
-            const totalAmount = productPrice * quantity;
+        // ✅ fix ép kiểu
+        const totalAmount = Number(productPrice) * Number(quantity);
 
-            /*-----------------------------------------
-            THANH TOÁN BẰNG VÍ
-            -------------------------------------------*/
-            if (paymentMethod === "wallet") {
-                const token = req.headers.authorization?.split(' ')[1];
-                if (!token) {
-                    res.status(401).json({ error: "Cần đăng nhập để thanh toán bằng ví" });
-                    return;
-                }
+        /*-----------------------------------------
+        THANH TOÁN MOMO
+        -------------------------------------------*/
+        if (paymentMethod === "momo") {
 
-                const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
-                const userId = decoded.userId;
+            const partnerCode = "MOMO";
+            const accessKey = "F8BBA842ECF85";
+            const secretKey = "K951B6PE1waDMi640xX08PD3vg6EkVlz";
 
-                // kiểm tra tồn tại ví
-                const walletResult = await pool.query(
-                    `SELECT id, balance FROM wallets WHERE user_id = $1`,
-                    [userId]
+            const orderId = randomUUID();
+            const requestId = orderId;
+            const amount = totalAmount.toString();
+
+            const redirectUrl = "http://localhost:3000/payment-result";
+            const ipnUrl = "http://localhost:5000/api/momo-ipn";
+
+            // Tạo chữ ký theo thứ tự MoMo API
+            const rawSignature =
+                "accessKey=" + accessKey +
+                "&amount=" + amount +
+                "&extraData=" +
+                "&ipnUrl=" + ipnUrl +
+                "&orderId=" + orderId +
+                "&orderInfo=" + productTitle +
+                "&partnerCode=" + partnerCode +
+                "&redirectUrl=" + redirectUrl +
+                "&requestId=" + requestId +
+                "&requestType=captureWallet";
+
+            const signature = crypto
+                .createHmac("sha256", secretKey)
+                .update(rawSignature)
+                .digest("hex");
+
+            await pool.query(
+                `INSERT INTO orders 
+                (id, full_name, email, phone, address, product_id, product_title, product_price, quantity, status, payment_method)
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending','momo')`,
+                [orderId, fullName, email, phone, address, productId, productTitle, productPrice, quantity]
+            );
+
+            try {
+                const momoPayload = {
+                    partnerCode,
+                    accessKey,
+                    requestId,
+                    amount,
+                    orderId,
+                    extraData: "",
+                    orderInfo: productTitle,
+                    redirectUrl,
+                    ipnUrl,
+                    requestType: "captureWallet",
+                    signature,
+                    lang: "vi",
+                };
+
+                const response = await axios.post(
+                    "https://test-payment.momo.vn/v2/gateway/api/create",
+                    momoPayload,
+                    { timeout: 10000 }
                 );
 
-                const wallet = walletResult.rows[0];
-                if (!wallet || wallet.balance < totalAmount) {
-                    res.status(400).json({ error: "Số dư ví không đủ để thanh toán" });
-                    return;
-                }
-
-                const walletId = wallet.id;
-
-                // Start transaction
-                const client = await pool.connect();
-                try {
-                    await client.query("BEGIN");
-
-                    // Insert order
-                    await client.query(
-                        `INSERT INTO orders 
-                        (full_name, email, phone, address, product_id, product_title, product_price, status, payment_method) 
-                        VALUES ($1, $2, $3, $4, $5, $6, $7, 'confirmed', 'wallet')`,
-                        [fullName, email, phone, address, productId, productTitle, productPrice]
-                    );
-
-                    // trừ tiền ví
-                    await client.query(
-                        `UPDATE wallets SET balance = balance - $1 WHERE user_id = $2`,
-                        [totalAmount, userId]
-                    );
-
-                    // Insert giao dịch ví đúng chuẩn
-                    await client.query(
-                        `INSERT INTO wallet_transactions (wallet_id, type, amount, description)
-                        VALUES ($1, 'payment', $2, $3)`,
-                        [walletId, totalAmount, `Thanh toán đơn hàng: ${productTitle}`]
-                    );
-
-                    await client.query("COMMIT");
-
-                    res.json({
-                        message: "Đặt hàng & thanh toán thành công",
-                        paymentMethod: "wallet",
+                const payUrl = response.data?.payUrl;
+                if (!payUrl) {
+                    res.status(502).json({
+                        error: "MoMo không trả về link thanh toán",
+                        momoResultCode: response.data?.resultCode,
+                        momoMessage: response.data?.message,
+                        subErrors: response.data?.subErrors || []
                     });
-
-                } catch (err) {
-                    await client.query("ROLLBACK");
-                    throw err;
-                } finally {
-                    client.release();
+                    return;
                 }
-
-            } else {
-                /*-----------------------------------------
-                    THANH TOÁN COD
-                -------------------------------------------*/
-
-                await pool.query(
-                    `INSERT INTO orders 
-                    (full_name, email, phone, address, product_id, product_title, product_price, status, payment_method)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', 'cod')`,
-                    [fullName, email, phone, address, productId, productTitle, productPrice]
-                );
 
                 res.json({
-                    message: "Đặt hàng thành công (COD)",
-                    paymentMethod: "cod"
+                    paymentMethod: "momo",
+                    payUrl,
+                    momoResultCode: response.data?.resultCode,
+                    momoMessage: response.data?.message
+                });
+            } catch (momoError: any) {
+                console.error("Lỗi gọi MoMo API:", {
+                    status: momoError.response?.status,
+                    resultCode: momoError.response?.data?.resultCode,
+                    message: momoError.response?.data?.message,
+                    subErrors: momoError.response?.data?.subErrors,
+                    fullResponse: momoError.response?.data
+                });
+
+                res.status(502).json({
+                    error: "Lỗi gọi MoMo API",
+                    momoResultCode: momoError.response?.data?.resultCode,
+                    momoMessage: momoError.response?.data?.message,
+                    subErrors: momoError.response?.data?.subErrors || []
                 });
             }
-        } catch (error) {
-            console.error(error);
-            res.status(500).json({ error: "Lỗi server" });
+            return;
         }
-    };
 
+        /*-----------------------------------------
+        THANH TOÁN COD
+        -------------------------------------------*/
+        await pool.query(
+            `INSERT INTO orders 
+            (full_name, email, phone, address, product_id, product_title, product_price, quantity, status, payment_method)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pending','cod')`,
+            [fullName, email, phone, address, productId, productTitle, productPrice, quantity]
+        );
 
-    /*-----------------------------------------
-        Get all orders   
-    -------------------------------------------*/
-    export const getAllOrders = async (req: Request, res: Response): Promise<void> => {
-        try {
-            const result = await pool.query(`SELECT * FROM orders ORDER BY created_at DESC`);
-            res.json(result.rows);
-        } catch (error) {
-            console.error("Lỗi khi lấy danh sách đơn hàng:", error);
-            res.status(500).json({ error: "Lỗi server" });
-        }
-    };
+        res.json({
+            message: "Đặt hàng thành công (COD)",
+            paymentMethod: "cod"
+        });
+        return;
 
-
-    /*-----------------------------------------
-    Update order status  
-    -------------------------------------------*/
-    export const updateOrderStatus = async (req: Request, res: Response): Promise<void> => {
-        try {
-            const { id } = req.params;
-            const { status } = req.body;
-
-            const validStatuses = ["pending", "confirmed", "shipping", "completed", "cancelled"];
-            if (!validStatuses.includes(status)) {
-                res.status(400).json({ error: "Trạng thái không hợp lệ" });
-                return;
-            }
-
-            const orderResult = await pool.query(
-                `SELECT id, email, product_title FROM orders WHERE id = $1`,
-                [id]
-            );
-
-            if (orderResult.rows.length === 0) {
-                res.status(404).json({ error: "Không tìm thấy đơn hàng" });
-                return;
-            }
-
-            const order = orderResult.rows[0];
-
-            await pool.query(
-                `UPDATE orders SET status = $1 WHERE id = $2`,
-                [status, id]
-            );
-
-            await pool.query(
-                `INSERT INTO notifications (user_email, title, message, is_read)
-                VALUES ($1, $2, $3, FALSE)`,
-                [
-                    order.email,
-                    `Cập nhật đơn hàng: ${order.product_title}`,
-                    `Đơn hàng của bạn đã được cập nhật sang trạng thái: ${status}`
-                ]
-            );
-
-            res.json({
-                success: true,
-                message: "Cập nhật trạng thái thành công",
-                order: { ...order, status }
-            });
-
-        } catch (error) {
-            console.error("Lỗi khi cập nhật trạng thái đơn hàng:", error);
-            res.status(500).json({ error: "Lỗi server" });
-        }
-    };
-
-
-    /*-----------------------------------------
-    Get user orders
-    -------------------------------------------*/
-    export const getUserOrders = async (req: Request, res: Response): Promise<void> => {
-        try {
-            const { email } = req.params;
-
-            const result = await pool.query(
-                `SELECT * FROM orders WHERE email = $1 ORDER BY created_at DESC`,
-                [email]
-            );
-
-            res.json(result.rows);
-
-        } catch (error) {
-            console.error("Lỗi khi lấy đơn hàng user:", error);
-            res.status(500).json({ error: "Lỗi server" });
-        }
-    };
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Lỗi server" });
+        return;
+    }
+};
