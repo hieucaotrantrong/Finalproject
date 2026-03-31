@@ -13,9 +13,16 @@ const formatSold = (num) => {
     return num;
 };
 
+const formatRating = (num) => {
+    const parsed = Number(num);
+    if (Number.isNaN(parsed) || parsed <= 0) return "0.0";
+    return parsed.toFixed(1);
+};
+
 // 🔥 thêm sold vào props
-const CartItem = ({ id, image, title, originalprice, price, discount, sold }) => {
+const CartItem = ({ id, image, title, originalprice, price, discount, sold, rating, average_rating }) => {
     const navigate = useNavigate();
+    const displayRating = rating ?? average_rating;
 
     const handleBuyNow = () => {
         const token = localStorage.getItem("token");
@@ -86,7 +93,7 @@ const CartItem = ({ id, image, title, originalprice, price, discount, sold }) =>
                 <div className="flex items-center text-xs text-gray-600 mb-2">
                     <span className="text-yellow-500">★</span>
                     <span className="ml-1">
-                        4.4 • Đã bán {formatSold(sold)}
+                        {formatRating(displayRating)} • Đã bán {formatSold(sold)}
                     </span>
                 </div>
 

@@ -341,6 +341,7 @@ const CartPayPage = () => {
         }
 
         setIsLoading(true);
+        const momoReturnUrl = `${window.location.origin}/orders`;
 
         try {
             const token = localStorage.getItem('token'); // Thêm dòng này
@@ -358,6 +359,7 @@ const CartPayPage = () => {
                         productPrice: item.price,
                         quantity: item.quantity,
                         paymentMethod,
+                        returnUrl: momoReturnUrl,
                         shippingFee,
                         shippingRegion: selectedProvince?.ProvinceName || null,
                         shippingDistrict: selectedDistrict?.DistrictName || null,
@@ -391,6 +393,7 @@ const CartPayPage = () => {
                     productTitle: product.title,
                     productPrice: product.price,
                     paymentMethod,
+                    returnUrl: momoReturnUrl,
                     shippingFee,
                     shippingRegion: selectedProvince?.ProvinceName || null,
                     shippingDistrict: selectedDistrict?.DistrictName || null,

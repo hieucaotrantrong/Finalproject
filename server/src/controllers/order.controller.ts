@@ -18,7 +18,9 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
             productTitle,
             productPrice,
             quantity = 1,
-            paymentMethod = "cod"
+            shippingFee = 0,
+            paymentMethod = "cod",
+            returnUrl
         } = req.body;
 
         // Validate
@@ -27,7 +29,17 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
             return;
         }
 
-        const totalAmount = productPrice * quantity;
+        const normalizedProductPrice = Number(productPrice) || 0;
+        const normalizedQuantity = Number(quantity) || 1;
+        const normalizedShippingFee = Number(shippingFee) || 0;
+
+        if (normalizedProductPrice <= 0 || normalizedQuantity <= 0 || normalizedShippingFee < 0) {
+            res.status(400).json({ error: "Dữ liệu tiền đơn hàng không hợp lệ" });
+            return;
+        }
+
+        const totalAmount =
+            normalizedProductPrice * normalizedQuantity + normalizedShippingFee;
 
         /*-----------------------------------------
         THANH TOÁN MOMO
@@ -42,7 +54,13 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
             const requestId = orderId;
             const amount = totalAmount.toString();
 
-            const redirectUrl = "http://localhost:3000/payment-result";
+            const isValidReturnUrl =
+                typeof returnUrl === "string" &&
+                /^https?:\/\//i.test(returnUrl);
+
+            const redirectUrl = isValidReturnUrl
+                ? returnUrl
+                : `${process.env.FRONTEND_URL || "http://localhost:5173"}/orders`;
             const ipnUrl = "http://localhost:5000/api/orders/momo-ipn";
 
             const rawSignature =
@@ -67,7 +85,17 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
                 `INSERT INTO orders 
                 (id, full_name, email, phone, address, product_id, product_title, product_price, quantity, status, payment_method)
                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending','momo')`,
-                [orderId, fullName, email, phone, address, productId, productTitle, productPrice, quantity]
+                [
+                    orderId,
+                    fullName,
+                    email,
+                    phone,
+                    address,
+                    productId,
+                    productTitle,
+                    normalizedProductPrice,
+                    normalizedQuantity
+                ]
             );
 
             try {
@@ -136,7 +164,16 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
             `INSERT INTO orders 
             (full_name, email, phone, address, product_id, product_title, product_price, quantity, status, payment_method)
             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pending','cod')`,
-            [fullName, email, phone, address, productId, productTitle, productPrice, quantity]
+            [
+                fullName,
+                email,
+                phone,
+                address,
+                productId,
+                productTitle,
+                normalizedProductPrice,
+                normalizedQuantity
+            ]
         );
 
         res.json({
@@ -182,6 +219,109 @@ export const getAllOrders = async (req: Request, res: Response): Promise<void> =
         res.json(result.rows);
     } catch (error) {
         console.error("Lỗi khi lấy danh sách đơn hàng:", error);
+        res.status(500).json({ error: "Lỗi server" });
+    }
+};
+
+/*-----------------------------------------
+  Admin revenue summary
+-------------------------------------------*/
+export const getRevenueSummary = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const from = typeof req.query.from === "string" ? req.query.from : undefined;
+        const to = typeof req.query.to === "string" ? req.query.to : undefined;
+
+        const dateConditions: string[] = [];
+        const values: any[] = [];
+
+        if (from) {
+            values.push(from);
+            dateConditions.push(`created_at::date >= $${values.length}`);
+        }
+
+        if (to) {
+            values.push(to);
+            dateConditions.push(`created_at::date <= $${values.length}`);
+        }
+
+        const allWhereClause = dateConditions.length
+            ? `WHERE ${dateConditions.join(" AND ")}`
+            : "";
+
+        const completedWhereClause = dateConditions.length
+            ? `WHERE status = 'completed' AND ${dateConditions.join(" AND ")}`
+            : `WHERE status = 'completed'`;
+
+        const summaryQuery = `
+            SELECT
+                COALESCE(SUM((product_price::numeric) * COALESCE(quantity, 1)), 0) AS total_revenue,
+                COUNT(*)::int AS completed_orders,
+                COALESCE(SUM(COALESCE(quantity, 1)), 0)::int AS total_items,
+                COALESCE(AVG((product_price::numeric) * COALESCE(quantity, 1)), 0) AS average_order_value
+            FROM orders
+            ${completedWhereClause}
+        `;
+
+        const byDateQuery = `
+            SELECT
+                created_at::date AS day,
+                COALESCE(SUM((product_price::numeric) * COALESCE(quantity, 1)), 0) AS revenue,
+                COUNT(*)::int AS orders
+            FROM orders
+            ${completedWhereClause}
+            GROUP BY created_at::date
+            ORDER BY day DESC
+        `;
+
+        const orderStatsQuery = `
+            SELECT
+                COUNT(*)::int AS total_orders,
+                COUNT(*) FILTER (WHERE status = 'completed')::int AS completed_orders
+            FROM orders
+            ${allWhereClause}
+        `;
+
+        const [summaryResult, byDateResult, orderStatsResult] = await Promise.all([
+            pool.query(summaryQuery, values),
+            pool.query(byDateQuery, values),
+            pool.query(orderStatsQuery, values)
+        ]);
+
+        const summary = summaryResult.rows[0] || {
+            total_revenue: 0,
+            completed_orders: 0,
+            total_items: 0,
+            average_order_value: 0
+        };
+
+        const orderStats = orderStatsResult.rows[0] || {
+            total_orders: 0,
+            completed_orders: 0
+        };
+
+        const totalOrders = Number(orderStats.total_orders || 0);
+        const completedOrders = Number(orderStats.completed_orders || 0);
+        const incompleteOrders = Math.max(totalOrders - completedOrders, 0);
+        const completionRate = totalOrders > 0 ? (completedOrders / totalOrders) * 100 : 0;
+
+        res.json({
+            summary: {
+                totalRevenue: Number(summary.total_revenue || 0),
+                completedOrders: Number(summary.completed_orders || 0),
+                totalItems: Number(summary.total_items || 0),
+                averageOrderValue: Number(summary.average_order_value || 0),
+                totalOrders,
+                incompleteOrders,
+                completionRate
+            },
+            byDate: (byDateResult.rows || []).map((row) => ({
+                day: row.day,
+                revenue: Number(row.revenue || 0),
+                orders: Number(row.orders || 0)
+            }))
+        });
+    } catch (error) {
+        console.error("Lỗi khi lấy tổng quan doanh thu:", error);
         res.status(500).json({ error: "Lỗi server" });
     }
 };

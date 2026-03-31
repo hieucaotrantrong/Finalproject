@@ -595,6 +595,7 @@ const ProductDetail = () => {
                     price={item.price}
                     discount={item.discount || 0}
                     sold={item.sold || 0}
+                    rating={item.average_rating ?? item.rating ?? 0}
                 />
             ))}
         </div>

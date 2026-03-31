@@ -122,6 +122,7 @@ export default function CategoryGrid() {
             price={product.price}
             discount={product.discount}
             sold={product.sold} // Đừng quên truyền sold nếu CartItem cần nhé
+            rating={product.average_rating ?? product.rating ?? 0}
         />
     ))}
 </div>
@@ -140,6 +141,8 @@ export default function CategoryGrid() {
                                 originalprice={product.originalprice}
                                 price={product.price}
                                 discount={product.discount}
+                                sold={product.sold}
+                                rating={product.average_rating ?? product.rating ?? 0}
                             />
                         ))}
 

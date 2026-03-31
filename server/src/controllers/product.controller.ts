@@ -6,7 +6,21 @@ Get all products
 -----------------------------------*/
 export const getAllProducts = async (req: Request, res: Response): Promise<void> => {
     try {
-        const result = await pool.query('SELECT * FROM products');
+        const result = await pool.query(`
+            SELECT
+                p.*,
+                COALESCE(r.avg_rating, 0) AS average_rating,
+                COALESCE(r.review_count, 0) AS review_count
+            FROM products p
+            LEFT JOIN (
+                SELECT
+                    product_id,
+                    ROUND(AVG(rating)::numeric, 1) AS avg_rating,
+                    COUNT(*)::int AS review_count
+                FROM reviews
+                GROUP BY product_id
+            ) r ON r.product_id = p.id
+        `);
         res.json(result.rows);
     } catch (err) {
         console.error('Lỗi khi lấy sản phẩm:', err);
@@ -23,7 +37,20 @@ export const getProductById = async (req: Request, res: Response): Promise<void>
     try {
         // 1. product
         const result = await pool.query(
-            'SELECT * FROM products WHERE id = $1',
+            `SELECT
+                p.*,
+                COALESCE(r.avg_rating, 0) AS average_rating,
+                COALESCE(r.review_count, 0) AS review_count
+             FROM products p
+             LEFT JOIN (
+                SELECT
+                    product_id,
+                    ROUND(AVG(rating)::numeric, 1) AS avg_rating,
+                    COUNT(*)::int AS review_count
+                FROM reviews
+                GROUP BY product_id
+             ) r ON r.product_id = p.id
+             WHERE p.id = $1`,
             [id]
         );
 

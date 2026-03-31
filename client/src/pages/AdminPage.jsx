@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import SupportManagement from '../components/SupportManagement';
 import OrderManagement from '../components/OrderManagement';
-import WalletManagement from '../components/WalletManagement';
+import RevenueManagement from '../components/RevenueManagement';
 import Footers from '../components/Footers';
 import AdminUsers from '../components/AdminUsers';
 import AdminBanner from '../pages/AdminBanner';
@@ -251,7 +251,7 @@ setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
                     {[
                         { key: 'products', label: 'Quản lý sản phẩm' },
                         { key: 'orders', label: 'Quản lý đơn hàng' },
-                        { key: 'wallet', label: 'Quản lý ví' },
+                        { key: 'revenue', label: 'Quản lý doanh thu' },
                         { key: 'support', label: 'Quản lý hỗ trợ' },
                         { key: 'users', label: 'Quản lý người dùng' },
                          { key: 'banners', label: 'Quản lý banner' },
@@ -565,8 +565,8 @@ setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
                 </>
             ) : activeTab === 'orders' ? (
                 <OrderManagement />
-            ) : activeTab === 'wallet' ? (
-                <WalletManagement />
+            ) : activeTab === 'revenue' ? (
+                <RevenueManagement />
             ) : activeTab === 'users' ? (
                 <AdminUsers />
             ) : activeTab === 'banners' ? (

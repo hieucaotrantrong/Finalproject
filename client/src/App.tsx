@@ -20,7 +20,6 @@ import CartPayPage from "./components/CartPayPage";
 import SupportPage from "./components/SupportPage";
 import PromoBanner from './components/PromoBanner';
 import Profile from './pages/Profile';
-import WalletPage from './components/WalletPage';
 import OrderHistory from './components/OrderHistory';
 import { useState } from 'react';
 import SocialLogin from "./components/SocialLogin";
@@ -119,7 +118,6 @@ function App() {
           <Route path="/cartpay" element={<CartPayPage />} />
           <Route path="/support" element={<SupportPage />} />
           <Route path="/profile" element={<Profile />} />
-          <Route path="/wallet" element={<WalletPage />} />
           <Route path="/orders" element={<OrderHistory />} />
           <Route path="/social-login" element={<SocialLogin />} />
           {/* 🆕 Trang yêu thích */}

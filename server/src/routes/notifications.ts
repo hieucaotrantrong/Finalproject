@@ -52,5 +52,34 @@ router.put('/:id/read', asyncHandler(async (req: Request, res: Response) => {
     }
 }));
 
+/*----------------------------------
+   Đánh dấu đã đọc tất cả theo danh sách id
+-----------------------------------*/
+router.put('/read-all', asyncHandler(async (req: Request, res: Response) => {
+    try {
+        const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+        const numericIds = ids
+            .map((id: any) => Number(id))
+            .filter((id: number) => Number.isInteger(id) && id > 0);
+
+        if (numericIds.length === 0) {
+            res.json({ success: true, updated: 0 });
+            return;
+        }
+
+        const result = await pool.query(
+            `UPDATE notifications
+             SET is_read = TRUE
+             WHERE id = ANY($1::int[])`,
+            [numericIds]
+        );
+
+        res.json({ success: true, updated: result.rowCount ?? 0 });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Lỗi server' });
+    }
+}));
+
 
 export default router;

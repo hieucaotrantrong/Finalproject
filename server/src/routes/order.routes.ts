@@ -3,6 +3,7 @@ import { momoIPN } from '../controllers/order.controller';
 import {
     createOrder,
     getAllOrders,
+   getRevenueSummary,
     updateOrderStatus,
    getUserOrders,
    cancelUserOrder,
@@ -31,6 +32,11 @@ router.post('/', asyncHandler(createOrder));
    Admin lấy toàn bộ order
 -----------------------------------*/
 router.get('/', adminAuth, asyncHandler(getAllOrders));
+
+/*----------------------------------
+    Admin lấy tổng quan doanh thu
+-----------------------------------*/
+router.get('/revenue/summary', adminAuth, asyncHandler(getRevenueSummary));
 
 /*----------------------------------
   Admin update trạng thái đơn hàng

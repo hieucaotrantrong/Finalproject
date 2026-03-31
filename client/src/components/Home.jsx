@@ -12,7 +12,6 @@ import {
     FaShoppingCart,
     FaMapMarkerAlt,
     FaSearch,
-    FaWallet,
 } from "react-icons/fa";
 
 const DEFAULT_AVATAR = '/assets/avt.jpg';
@@ -506,14 +505,6 @@ export default function Home({ onFilterChange }) {
                         {user ? (
                             <>
                                 <Notifications />
-
-                                <div
-                                    className="flex items-center gap-1 text-sm hover:underline cursor-pointer"
-                                    onClick={() => navigate('/wallet')}
-                                >
-                                    <FaWallet />
-
-                                </div>
 
                                 <div
                                     className="flex items-center gap-1 text-sm hover:underline cursor-pointer"
