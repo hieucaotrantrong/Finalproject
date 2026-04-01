@@ -99,11 +99,11 @@ const AdminUsers = () => {
     };
 
     return (
-        <div className="bg-white p-6 rounded-xl shadow-lg border border-yellow-300">
+        <div className="bg-white p-6 rounded-xl shadow-lg border border-slate-200">
             {/* BUTTON SHOW / HIDE FORM */}
             <button
                 onClick={() => setShowForm(!showForm)}
-                className="w-full bg-yellow-400 text-black py-2 rounded-lg font-semibold shadow hover:bg-yellow-500 transition"
+                className="w-full rounded border border-gray-600 bg-white py-2 font-semibold text-gray-700 transition hover:bg-gray-100"
             >
                 {showForm ? "Ẩn form tạo người dùng" : " Thêm người dùng"}
             </button>
@@ -112,36 +112,36 @@ const AdminUsers = () => {
             {showForm && (
                 <form
                     onSubmit={createUser}
-                    className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-3 bg-yellow-50 p-4 rounded-lg border border-yellow-200 shadow-inner"
+                    className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-inner"
                 >
                     <input
                         required placeholder="Họ"
                         value={newUser.first_name}
                         onChange={(e) => setNewUser({ ...newUser, first_name: e.target.value })}
-                        className="px-3 py-2 rounded border border-gray-300 focus:ring-2 focus:ring-yellow-400 outline-none"
+                        className="px-3 py-2 rounded border border-gray-300 focus:ring-2 focus:ring-slate-300 outline-none"
                     />
                     <input
                         required placeholder="Tên"
                         value={newUser.last_name}
                         onChange={(e) => setNewUser({ ...newUser, last_name: e.target.value })}
-                        className="px-3 py-2 rounded border border-gray-300 focus:ring-2 focus:ring-yellow-400 outline-none"
+                        className="px-3 py-2 rounded border border-gray-300 focus:ring-2 focus:ring-slate-300 outline-none"
                     />
                     <input
                         required placeholder="Email" type="email"
                         value={newUser.email}
                         onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                        className="px-3 py-2 rounded border border-gray-300 focus:ring-2 focus:ring-yellow-400 outline-none"
+                        className="px-3 py-2 rounded border border-gray-300 focus:ring-2 focus:ring-slate-300 outline-none"
                     />
                     <input
                         required placeholder="Mật khẩu" type="password"
                         value={newUser.password}
                         onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                        className="px-3 py-2 rounded border border-gray-300 focus:ring-2 focus:ring-yellow-400 outline-none"
+                        className="px-3 py-2 rounded border border-gray-300 focus:ring-2 focus:ring-slate-300 outline-none"
                     />
                     <select
                         value={newUser.role}
                         onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
-                        className="px-3 py-2 rounded border border-gray-300 focus:ring-2 focus:ring-yellow-400"
+                        className="px-3 py-2 rounded border border-gray-300 focus:ring-2 focus:ring-slate-300"
                     >
                         <option value="user">User</option>
                         <option value="admin">Admin</option>
@@ -150,12 +150,12 @@ const AdminUsers = () => {
                         placeholder="Số điện thoại"
                         value={newUser.phone}
                         onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
-                        className="px-3 py-2 rounded border border-gray-300 focus:ring-2 focus:ring-yellow-400"
+                        className="px-3 py-2 rounded border border-gray-300 focus:ring-2 focus:ring-slate-300"
                     />
                     <select
                         value={newUser.gender}
                         onChange={(e) => setNewUser({ ...newUser, gender: e.target.value })}
-                        className="px-3 py-2 rounded border border-gray-300 focus:ring-2 focus:ring-yellow-400"
+                        className="px-3 py-2 rounded border border-gray-300 focus:ring-2 focus:ring-slate-300"
                     >
                         <option value="">--Giới tính--</option>
                         <option value="male">Nam</option>
@@ -164,26 +164,26 @@ const AdminUsers = () => {
                     </select>
                     <button
                         type="submit"
-                        className="col-span-1 md:col-span-4 bg-yellow-500 text-black py-2 rounded font-semibold hover:bg-yellow-600 transition"
+                        className="w-full rounded border border-gray-600 bg-white py-2 font-semibold text-gray-700 transition hover:bg-gray-100"
                     >
-                        ✔ Xác nhận thêm người dùng
+                         Xác nhận thêm người dùng
                     </button>
                 </form>
             )}
 
             {/* TABLE */}
             <div className="overflow-x-auto mt-6">
-                <table className="w-full border border-yellow-400 rounded-lg overflow-hidden text-sm">
-                    <thead className="bg-yellow-400 text-black font-semibold">
+                <table className="w-full border border-slate-200 rounded-lg overflow-hidden text-sm">
+                    <thead className="bg-slate-100 text-slate-600 font-medium">
                         <tr>
-                            <th className="py-2 px-3 border-r border-yellow-300">ID</th>
-                            <th className="px-3 border-r border-yellow-300">Email</th>
-                            <th className="px-3 border-r border-yellow-300">Họ</th>
-                            <th className="px-3 border-r border-yellow-300">Tên</th>
-                            <th className="px-3 border-r border-yellow-300">Vai trò</th>
-                            <th className="px-3 border-r border-yellow-300">Điện thoại</th>
-                            <th className="px-3 border-r border-yellow-300">Giới tính</th>
-                            <th className="px-3 text-center">Hành động</th>
+                            <th className="py-2 px-3 border-r border-slate-200 font-medium">ID</th>
+                            <th className="px-3 border-r border-slate-200 font-medium">Email</th>
+                            <th className="px-3 border-r border-slate-200 font-medium">Họ</th>
+                            <th className="px-3 border-r border-slate-200 font-medium">Tên</th>
+                            <th className="px-3 border-r border-slate-200 font-medium">Vai trò</th>
+                            <th className="px-3 border-r border-slate-200 font-medium">Điện thoại</th>
+                            <th className="px-3 border-r border-slate-200 font-medium">Giới tính</th>
+                            <th className="px-3 text-center font-medium">Hành động</th>
                         </tr>
                     </thead>
 
@@ -191,41 +191,41 @@ const AdminUsers = () => {
                         {users.map((u) => (
                             <tr
                                 key={u.id}
-                                className="border-t border-yellow-200 hover:bg-yellow-50 transition text-gray-800"
+                                className="border-t border-slate-200 hover:bg-slate-50 transition text-gray-800"
                             >
-                                <td className="py-2 px-3 border-r border-yellow-200 text-center">{u.id}</td>
-                                <td className="px-3 border-r border-yellow-200">{u.email}</td>
+                                <td className="py-2 px-3 border-r border-slate-200 text-center">{u.id}</td>
+                                <td className="px-3 border-r border-slate-200">{u.email}</td>
 
-                                <td className="px-3 border-r border-yellow-200">
+                                <td className="px-3 border-r border-slate-200">
                                     {editingId === u.id ? (
                                         <input
                                             value={form.first_name}
                                             onChange={(e) => setForm({ ...form, first_name: e.target.value })}
-                                            className="px-2 py-1 rounded border border-yellow-300 w-full"
+                                            className="px-2 py-1 rounded border border-slate-300 w-full"
                                         />
                                     ) : (
                                         u.first_name
                                     )}
                                 </td>
 
-                                <td className="px-3 border-r border-yellow-200">
+                                <td className="px-3 border-r border-slate-200">
                                     {editingId === u.id ? (
                                         <input
                                             value={form.last_name}
                                             onChange={(e) => setForm({ ...form, last_name: e.target.value })}
-                                            className="px-2 py-1 rounded border border-yellow-300 w-full"
+                                            className="px-2 py-1 rounded border border-slate-300 w-full"
                                         />
                                     ) : (
                                         u.last_name
                                     )}
                                 </td>
 
-                                <td className="px-3 border-r border-yellow-200 text-center">
+                                <td className="px-3 border-r border-slate-200 text-center">
                                     {editingId === u.id ? (
                                         <select
                                             value={form.role}
                                             onChange={(e) => setForm({ ...form, role: e.target.value })}
-                                            className="px-2 py-1 rounded border border-yellow-300"
+                                            className="px-2 py-1 rounded border border-slate-300"
                                         >
                                             <option value="user">user</option>
                                             <option value="admin">admin</option>
@@ -235,24 +235,24 @@ const AdminUsers = () => {
                                     )}
                                 </td>
 
-                                <td className="px-3 border-r border-yellow-200 text-center">
+                                <td className="px-3 border-r border-slate-200 text-center">
                                     {editingId === u.id ? (
                                         <input
                                             value={form.phone}
                                             onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                                            className="px-2 py-1 rounded border border-yellow-300 w-full"
+                                            className="px-2 py-1 rounded border border-slate-300 w-full"
                                         />
                                     ) : (
                                         u.phone
                                     )}
                                 </td>
 
-                                <td className="px-3 border-r border-yellow-200 text-center">
+                                <td className="px-3 border-r border-slate-200 text-center">
                                     {editingId === u.id ? (
                                         <select
                                             value={form.gender}
                                             onChange={(e) => setForm({ ...form, gender: e.target.value })}
-                                            className="px-2 py-1 rounded border border-yellow-300"
+                                            className="px-2 py-1 rounded border border-slate-300"
                                         >
                                             <option value="male">Nam</option>
                                             <option value="female">Nữ</option>
@@ -268,28 +268,28 @@ const AdminUsers = () => {
                                         <>
                                             <button
                                                 onClick={() => saveEdit(u.id)}
-                                                className="bg-green-500 text-white px-3 py-1 rounded mr-2 hover:bg-green-600"
+                                                className="rounded border border-gray-500 px-3 py-1 mr-2 text-sm text-gray-700 transition hover:bg-gray-100"
                                             >
-                                                ✔ Lưu
+                                                 Lưu
                                             </button>
                                             <button
                                                 onClick={cancelEdit}
-                                                className="bg-gray-400 text-white px-3 py-1 rounded hover:bg-gray-500"
+                                                className="rounded border border-red-500 px-3 py-1 text-sm text-red-500 transition hover:bg-red-50"
                                             >
-                                                ✖ Hủy
+                                                 Hủy
                                             </button>
                                         </>
                                     ) : (
                                         <>
                                             <button
                                                 onClick={() => startEdit(u)}
-                                                className="bg-yellow-400 text-black px-3 py-1 rounded mr-2 hover:bg-yellow-500"
+                                                className="rounded border border-gray-500 px-3 py-1 mr-2 text-sm text-gray-700 transition hover:bg-gray-100"
                                             >
                                                 Sửa
                                             </button>
                                             <button
                                                 onClick={() => handleDelete(u.id)}
-                                                className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
+                                                className="rounded border border-red-500 px-3 py-1 text-sm text-red-500 transition hover:bg-red-50"
                                             >
                                                 Xóa
                                             </button>

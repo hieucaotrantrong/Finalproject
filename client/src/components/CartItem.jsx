@@ -20,11 +20,16 @@ const formatRating = (num) => {
 };
 
 // 🔥 thêm sold vào props
-const CartItem = ({ id, image, title, originalprice, price, discount, sold, rating, average_rating }) => {
+const CartItem = ({ id, image, title, originalprice, price, discount, sold, rating, average_rating, is_out_of_stock }) => {
     const navigate = useNavigate();
     const displayRating = rating ?? average_rating;
 
     const handleBuyNow = () => {
+        if (Boolean(is_out_of_stock)) {
+            alert("Sản phẩm hiện đang hết hàng");
+            return;
+        }
+
         const token = localStorage.getItem("token");
         const savedAddress = localStorage.getItem('userAddress') || '';
 
@@ -104,9 +109,14 @@ const CartItem = ({ id, image, title, originalprice, price, discount, sold, rati
 
                     <button
                         onClick={handleBuyNow}
-                        className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 text-xs rounded transition whitespace-nowrap"
+                        disabled={Boolean(is_out_of_stock)}
+                        className={`px-2 py-1 text-xs rounded transition whitespace-nowrap ${
+                            Boolean(is_out_of_stock)
+                                ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                                : 'bg-red-500 hover:bg-red-600 text-white'
+                        }`}
                     >
-                        Mua Ngay
+                        {Boolean(is_out_of_stock) ? 'Hết hàng' : 'Mua Ngay'}
                     </button>
                 </div>
             </div>

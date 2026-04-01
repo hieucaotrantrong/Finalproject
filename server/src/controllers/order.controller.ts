@@ -4,6 +4,44 @@ import jwt from "jsonwebtoken";
 import axios from "axios";
 import crypto from "crypto";
 import { randomUUID } from "crypto";
+
+const getAdminEmails = async (): Promise<string[]> => {
+    try {
+        const result = await pool.query(
+            `SELECT email FROM users WHERE role = 'admin'`
+        );
+
+        return result.rows
+            .map((row: any) => row.email)
+            .filter((email: string) => Boolean(email));
+    } catch (error) {
+        console.error('Lỗi khi lấy admin emails:', error);
+        return [];
+    }
+};
+
+const notifyAdminsNewOrder = async (
+    orderEmail: string,
+    productTitle: string,
+    quantity: number,
+    paymentMethod: string
+): Promise<void> => {
+    const adminEmails = await getAdminEmails();
+
+    if (adminEmails.length === 0) {
+        return;
+    }
+
+    const title = 'Đơn hàng mới';
+    const message = `Khách ${orderEmail} vừa đặt ${quantity} x ${productTitle} (${paymentMethod.toUpperCase()}).`;
+
+    await pool.query(
+        `INSERT INTO notifications (user_email, title, message, is_read)
+         SELECT email, $1, $2, FALSE
+         FROM unnest($3::text[]) AS email`,
+        [title, message, adminEmails]
+    );
+};
 /*-----------------------------------------
 Create Order (COD + MoMo)
 -------------------------------------------*/
@@ -35,6 +73,21 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
 
         if (normalizedProductPrice <= 0 || normalizedQuantity <= 0 || normalizedShippingFee < 0) {
             res.status(400).json({ error: "Dữ liệu tiền đơn hàng không hợp lệ" });
+            return;
+        }
+
+        const productCheck = await pool.query(
+            `SELECT id, title, is_out_of_stock FROM products WHERE id = $1 LIMIT 1`,
+            [productId]
+        );
+
+        if (productCheck.rows.length === 0) {
+            res.status(404).json({ error: 'Sản phẩm không tồn tại' });
+            return;
+        }
+
+        if (Boolean(productCheck.rows[0]?.is_out_of_stock)) {
+            res.status(400).json({ error: 'Sản phẩm đã hết hàng, không thể đặt mua' });
             return;
         }
 
@@ -96,6 +149,13 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
                     normalizedProductPrice,
                     normalizedQuantity
                 ]
+            );
+
+            await notifyAdminsNewOrder(
+                email,
+                productTitle,
+                normalizedQuantity,
+                'momo'
             );
 
             try {
@@ -174,6 +234,13 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
                 normalizedProductPrice,
                 normalizedQuantity
             ]
+        );
+
+        await notifyAdminsNewOrder(
+            email,
+            productTitle,
+            normalizedQuantity,
+            'cod'
         );
 
         res.json({

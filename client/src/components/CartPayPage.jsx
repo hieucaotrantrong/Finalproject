@@ -317,6 +317,17 @@ const CartPayPage = () => {
             return;
         }
 
+        if (isMultipleItems) {
+            const outOfStockItems = (cartItems || []).filter((item) => Boolean(item.is_out_of_stock));
+            if (outOfStockItems.length > 0) {
+                alert("Trong giỏ có sản phẩm đã hết hàng. Vui lòng xóa sản phẩm hết hàng trước khi đặt mua.");
+                return;
+            }
+        } else if (Boolean(product?.is_out_of_stock)) {
+            alert("Sản phẩm đã hết hàng, không thể đặt mua.");
+            return;
+        }
+
         const phoneRegex = /^[0-9]{10}$/;
         if (!phoneRegex.test(phone)) {
             alert("Số điện thoại không hợp lệ.");

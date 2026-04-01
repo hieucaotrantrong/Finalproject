@@ -230,6 +230,10 @@ const ProductDetail = () => {
 
     const handleAddToCart = () => {
         if (product) {
+            if (Boolean(product.is_out_of_stock)) {
+                alert("Sản phẩm hiện đang hết hàng");
+                return;
+            }
             addToCart(product);
             alert(" Đã thêm sản phẩm vào giỏ hàng!");
         }
@@ -398,9 +402,14 @@ const ProductDetail = () => {
 
                                 <button
                                     onClick={handleAddToCart}
-                                    className="text-white mt-4 sm:mt-0 bg-[#ffd400] hover:bg-yellow-500 focus:ring-4 focus:ring-yellow-300 font-medium rounded-lg text-sm px-5 py-2.5 flex items-center justify-center"
+                                    disabled={Boolean(product.is_out_of_stock)}
+                                    className={`mt-4 sm:mt-0 font-medium rounded-lg text-sm px-5 py-2.5 flex items-center justify-center ${
+                                        Boolean(product.is_out_of_stock)
+                                            ? "bg-gray-300 text-gray-600 cursor-not-allowed"
+                                            : "text-white bg-[#ffd400] hover:bg-yellow-500 focus:ring-4 focus:ring-yellow-300"
+                                    }`}
                                 >
-                                    Thêm vào giỏ
+                                    {Boolean(product.is_out_of_stock) ? "Hết hàng" : "Thêm vào giỏ"}
                                 </button>
                             </div>
 

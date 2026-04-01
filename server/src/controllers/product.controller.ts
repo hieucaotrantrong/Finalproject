@@ -1,6 +1,11 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
 
+const toProductResponse = (product: any) => ({
+    ...product,
+    is_out_of_stock: Boolean(product?.is_out_of_stock)
+});
+
 /*----------------------------------
 Get all products
 -----------------------------------*/
@@ -21,7 +26,7 @@ export const getAllProducts = async (req: Request, res: Response): Promise<void>
                 GROUP BY product_id
             ) r ON r.product_id = p.id
         `);
-        res.json(result.rows);
+        res.json((result.rows || []).map(toProductResponse));
     } catch (err) {
         console.error('Lỗi khi lấy sản phẩm:', err);
         res.status(500).json({ error: 'Lỗi khi lấy sản phẩm' });
@@ -59,7 +64,7 @@ export const getProductById = async (req: Request, res: Response): Promise<void>
             return;
         }
 
-        const product = result.rows[0];
+        const product = toProductResponse(result.rows[0]);
 
         // 2. images
         const imageResult = await pool.query(
@@ -98,7 +103,8 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
         image,
         category,
         images,
-        specs
+        specs,
+        is_out_of_stock
     } = req.body;
 
     const client = await pool.connect();
@@ -108,10 +114,10 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
 
         // 1. insert product
         const result = await client.query(
-            `INSERT INTO products (title, originalprice, price, discount, tag, image, category)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)
+            `INSERT INTO products (title, originalprice, price, discount, tag, image, category, is_out_of_stock)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
              RETURNING *`,
-            [title, originalprice, price, discount, tag, image, category]
+            [title, originalprice, price, discount, tag, image, category, Boolean(is_out_of_stock)]
         );
 
         const newProduct = result.rows[0];
@@ -148,7 +154,7 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
 
         await client.query('COMMIT');
 
-        res.status(201).json(newProduct);
+        res.status(201).json(toProductResponse(newProduct));
 
     } catch (err) {
         await client.query('ROLLBACK');
@@ -174,13 +180,30 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
         image,
         category,
         images,
-        specs
+        specs,
+        is_out_of_stock
     } = req.body;
 
     const client = await pool.connect();
 
     try {
         await client.query('BEGIN');
+
+        const currentProduct = await client.query(
+            'SELECT is_out_of_stock FROM products WHERE id = $1 LIMIT 1',
+            [id]
+        );
+
+        if (currentProduct.rows.length === 0) {
+            await client.query('ROLLBACK');
+            res.status(404).json({ error: 'Sản phẩm không tồn tại' });
+            return;
+        }
+
+        const nextOutOfStock =
+            typeof is_out_of_stock === 'boolean'
+                ? is_out_of_stock
+                : Boolean(currentProduct.rows[0]?.is_out_of_stock);
 
         // 1. update product
         const result = await client.query(
@@ -191,9 +214,10 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
                  discount = $4,
                  tag = $5,
                  image = $6,
-                 category = $7
-             WHERE id = $8`,
-            [title, originalprice, price, discount, tag, image, category, id]
+                 category = $7,
+                 is_out_of_stock = $8
+             WHERE id = $9`,
+            [title, originalprice, price, discount, tag, image, category, nextOutOfStock, id]
         );
 
         if ((result.rowCount ?? 0) === 0) {
@@ -275,5 +299,43 @@ export const deleteProduct = async (req: Request, res: Response): Promise<void> 
     } catch (err) {
         console.error('Lỗi khi xóa sản phẩm:', err);
         res.status(500).json({ error: 'Lỗi khi xóa sản phẩm' });
+    }
+};
+
+/*----------------------------------
+Update stock status (in/out of stock)
+-----------------------------------*/
+export const updateProductStockStatus = async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const { is_out_of_stock } = req.body;
+
+    if (typeof is_out_of_stock !== 'boolean') {
+        res.status(400).json({ error: 'is_out_of_stock phải là boolean' });
+        return;
+    }
+
+    try {
+        const existing = await pool.query('SELECT id FROM products WHERE id = $1 LIMIT 1', [id]);
+
+        if (existing.rows.length === 0) {
+            res.status(404).json({ error: 'Sản phẩm không tồn tại' });
+            return;
+        }
+
+        const updated = await pool.query(
+            `UPDATE products
+             SET is_out_of_stock = $1
+             WHERE id = $2
+             RETURNING *`,
+            [is_out_of_stock, id]
+        );
+
+        res.json({
+            message: 'Cập nhật trạng thái hàng thành công',
+            product: toProductResponse(updated.rows[0])
+        });
+    } catch (err) {
+        console.error('Lỗi khi cập nhật trạng thái hàng:', err);
+        res.status(500).json({ error: 'Lỗi khi cập nhật trạng thái hàng' });
     }
 };

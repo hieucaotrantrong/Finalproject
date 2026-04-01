@@ -1,17 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import SupportManagement from '../components/SupportManagement';
-import OrderManagement from '../components/OrderManagement';
-import RevenueManagement from '../components/RevenueManagement';
+import { FaSearch } from 'react-icons/fa';
+import SupportManagement from './SupportManagement';
+import OrderManagement from './OrderManagement';
+import RevenueManagement from './RevenueManagement';
 import Footers from '../components/Footers';
-import AdminUsers from '../components/AdminUsers';
-import AdminBanner from '../pages/AdminBanner';
+import AdminUsers from './AdminUsers';
+import AdminBanner from './AdminBanner';
+import Notifications from '../components/Notifications';
 
 const SIDE_PREFIX = 'side::';
 
 const AdminPage = () => {
     const [activeTab, setActiveTab] = useState('products');
+    const [adminSearch, setAdminSearch] = useState('');
     const [products, setProducts] = useState([]);
     const [banners, setBanners] = useState([]);
     const [currentSlide, setCurrentSlide] = useState(0);
@@ -41,6 +44,23 @@ const [specs, setSpecs] = useState([
     };
 
     const closePopup = () => setPopup({ ...popup, show: false });
+    const parsePriceToNumber = (value) => {
+        const raw = String(value || '').replace(/\./g, '').replace(/\D/g, '');
+        const parsed = Number(raw);
+        return Number.isFinite(parsed) ? parsed : 0;
+    };
+
+    const calculateDiscount = (originalValue, priceValue) => {
+        const original = parsePriceToNumber(originalValue);
+        const price = parsePriceToNumber(priceValue);
+
+        if (original <= 0 || price <= 0 || price >= original) {
+            return '0';
+        }
+
+        const percent = Math.round(((original - price) / original) * 100);
+        return String(Math.max(0, Math.min(100, percent)));
+    };
 
     const updateSpecField = (index, field, value) => {
         setSpecs((prev) => {
@@ -57,6 +77,15 @@ const [specs, setSpecs] = useState([
         { value: 'smartwatch', label: ' Smartwatch' },
         { value: 'watch', label: ' Đồng hồ' },
         { value: 'tablet', label: ' Tablet' },
+    ];
+
+    const adminTabs = [
+        { key: 'products', label: 'Quản lý sản phẩm' },
+        { key: 'orders', label: 'Quản lý đơn hàng' },
+        { key: 'revenue', label: 'Quản lý doanh thu'},
+        { key: 'support', label: 'Quản lý hỗ trợ',  },
+        { key: 'users', label: 'Quản lý người dùng',  },
+        { key: 'banners', label: 'Quản lý banner',  },
     ];
 
     const handleLogout = () => {
@@ -131,10 +160,12 @@ const handleSubmit = async (e) => {
     }
 
     try {
+        const autoDiscount = calculateDiscount(form.originalprice, form.price);
         const formData = {
             ...form,
             originalprice: form.originalprice.replace(/\./g, ''),
             price: form.price.replace(/\./g, ''),
+            discount: autoDiscount,
              specs: specs 
         };
 
@@ -181,6 +212,21 @@ setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
         }
     };
 
+    const handleToggleOutOfStock = async (product) => {
+        try {
+            const id = product.id || product._id;
+            const nextStatus = !Boolean(product.is_out_of_stock);
+            await axios.patch(`http://localhost:5000/api/products/${id}/stock-status`, {
+                is_out_of_stock: nextStatus
+            });
+            fetchProducts();
+            showPopup(nextStatus ? 'Đã chuyển sản phẩm sang Hết hàng' : 'Đã mở bán lại sản phẩm', 'success');
+        } catch (error) {
+            console.error('Lỗi khi cập nhật trạng thái hết hàng:', error);
+            showPopup('Không thể cập nhật trạng thái hết hàng', 'error');
+        }
+    };
+
     const handleEdit = async (product) => {
         try {
             const id = product.id || product._id;
@@ -199,7 +245,7 @@ setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
             title: detailProduct.title || '',
             originalprice: cleanOriginal,
             price: cleanPrice,
-            discount: detailProduct.discount || '',
+            discount: calculateDiscount(cleanOriginal, cleanPrice),
             tag: detailProduct.tag || '',
             image: detailProduct.image || '',
             images: detailProduct.images || [],
@@ -224,7 +270,9 @@ setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
 
     const handlePriceChange = (field, value) => {
         const formatted = formatPrice(value);
-        setForm({ ...form, [field]: formatted });
+        const nextForm = { ...form, [field]: formatted };
+        nextForm.discount = calculateDiscount(nextForm.originalprice, nextForm.price);
+        setForm(nextForm);
     };
 
     const formatDisplayPrice = (price) => {
@@ -232,81 +280,127 @@ setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
         return numPrice.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     };
 
+    const normalizedSearch = adminSearch.trim().toLowerCase();
+    const filteredProducts = !normalizedSearch
+        ? products
+        : products.filter((item) => {
+            const title = String(item?.title || '').toLowerCase();
+            const tag = String(item?.tag || '').toLowerCase();
+            const category = String(item?.category || '').toLowerCase();
+            return (
+                title.includes(normalizedSearch) ||
+                tag.includes(normalizedSearch) ||
+                category.includes(normalizedSearch)
+            );
+        });
+
     return (
-        <div className="w-full min-h-screen p-6 bg-gray-50">
-            <header className="fixed top-0 left-0 w-full bg-yellow-400 shadow-lg py-5 px-16 flex items-center justify-between gap-4 z-50">
-                <div className="flex items-center">
-                    <img
-                        src="/assets/logo.jpg"
-                        alt="logo"
-                        className="h-10 object-contain mr-3 cursor-pointer"
-                        onClick={() => {
-                            setActiveTab('products');
-                            navigate('/admin');
-                        }}
-                    />
-                </div>
-
-                <nav className="flex-1 flex flex-wrap justify-center gap-4">
-                    {[
-                        { key: 'products', label: 'Quản lý sản phẩm' },
-                        { key: 'orders', label: 'Quản lý đơn hàng' },
-                        { key: 'revenue', label: 'Quản lý doanh thu' },
-                        { key: 'support', label: 'Quản lý hỗ trợ' },
-                        { key: 'users', label: 'Quản lý người dùng' },
-                         { key: 'banners', label: 'Quản lý banner' },
-                    ].map((tab) => (
+        <div className="min-h-screen bg-white">
+            <div className="mx-auto flex w-full max-w-[1800px] gap-6 p-4 md:p-6">
+                <aside className="hidden w-[280px] shrink-0 overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-sm lg:block">
+                    <div className="border-b border-slate-200 px-5 py-6">
                         <button
-                            key={tab.key}
-                            onClick={() => setActiveTab(tab.key)}
-                            className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${activeTab === tab.key
-                                ? 'bg-blue-600 text-white shadow-md'
-                                : 'bg-white text-gray-800 hover:bg-blue-100 border border-gray-200'
-                                }`}
+                            type="button"
+                            className="w-full rounded-xl bg-white px-3 py-3 shadow-sm ring-1 ring-black/5"
+                            onClick={() => {
+                                setActiveTab('products');
+                                navigate('/admin');
+                            }}
                         >
-                            {tab.label}
+                            <img
+                                src="/assets/logoadmin.png"
+                                alt="logo"
+                                className="mx-auto h-16 w-auto object-contain"
+                            />
                         </button>
-                    ))}
-                </nav>
+                        <p className="mt-4 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Bảng điều khiển</p>
+                    </div>
 
-                <button
-                    onClick={handleLogout}
-                    className="bg-red-500 hover:bg-red-600 text-white px-4 py-1 rounded-full flex items-center gap-2 shadow-sm text-sm transition"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                        <path
-                            fillRule="evenodd"
-                            d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z"
-                            clipRule="evenodd"
-                        />
-                    </svg>
-                    Đăng xuất
-                </button>
-            </header>
+                    <nav className="space-y-2 px-4 py-5">
+                        {adminTabs.map((tab) => (
+                            <button
+                                key={tab.key}
+                                onClick={() => setActiveTab(tab.key)}
+                                className={`group flex w-full items-center rounded-xl border px-3 py-3 text-left text-sm font-semibold transition-all ${
+                                    activeTab === tab.key
+                                        ? 'bg-slate-50 border-slate-800 text-slate-900 shadow-sm'
+                                        : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
+                                }`}
+                            >
+                                <span>{tab.label}</span>
+                            </button>
+                        ))}
+                    </nav>
 
-            <div className="mt-28 w-full max-w-[1700px] mx-auto">
-                {banners.length > 0 ? (
-                    <div className="relative w-full h-64 overflow-hidden rounded-lg border border-gray-300 bg-white">
-                        <div
-                            className="flex h-full transition-transform duration-700 ease-in-out"
-                            style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+                    <div className="px-4 pb-6 pt-2">
+                        <button
+                            onClick={handleLogout}
+                            className="w-full rounded-xl border border-red-500 bg-white px-4 py-3 text-sm font-semibold text-red-500 transition hover:bg-red-50"
                         >
-                            {banners.map((banner, index) => (
-                                <img
-                                    key={banner.id || index}
-                                    src={getBannerSrc(banner.image_url)}
-                                    className="w-full h-full object-cover flex-shrink-0"
-                                    alt={`Slide ${index + 1}`}
+                            Đăng xuất
+                        </button>
+                    </div>
+                </aside>
+
+                <main className="min-w-0 flex-1">
+                    <header className="mb-5 rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-slate-200 md:px-6">
+                        <div className="flex items-center gap-3">
+                            <div className="relative flex-1">
+                                <FaSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500" />
+                                <input
+                                    type="text"
+                                    placeholder="Tìm sản phẩm, danh mục, tag..."
+                                    value={adminSearch}
+                                    onChange={(e) => setAdminSearch(e.target.value)}
+                                    className="w-full rounded-full border border-slate-200 bg-white py-2 pl-9 pr-4 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                                 />
-                            ))}
+                            </div>
+                            <div className="rounded-full border border-slate-200 bg-white px-1">
+                                <Notifications />
+                            </div>
                         </div>
+
+                        <div className="mt-4 lg:hidden">
+                            <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">
+                                Chuyển khu vực quản trị
+                            </label>
+                            <select
+                                value={activeTab}
+                                onChange={(e) => setActiveTab(e.target.value)}
+                                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                            >
+                                {adminTabs.map((tab) => (
+                                    <option key={tab.key} value={tab.key}>
+                                        {tab.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </header>
+
+                    <div className="mb-6 w-full">
+                        {banners.length > 0 ? (
+                            <div className="relative h-56 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm md:h-64">
+                                <div
+                                    className="flex h-full transition-transform duration-700 ease-in-out"
+                                    style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+                                >
+                                    {banners.map((banner, index) => (
+                                        <img
+                                            key={banner.id || index}
+                                            src={getBannerSrc(banner.image_url)}
+                                            className="h-full w-full flex-shrink-0 object-cover"
+                                            alt={`Slide ${index + 1}`}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="relative flex h-56 w-full items-center justify-center overflow-hidden rounded-2xl bg-slate-100 text-slate-600 md:h-64">
+                                Chưa có banner từ API
+                            </div>
+                        )}
                     </div>
-                ) : (
-                    <div className="relative w-full h-64 overflow-hidden rounded-lg bg-gray-200 flex items-center justify-center text-gray-600">
-                        Chưa có banner từ API
-                    </div>
-                )}
-            </div>
 
             {activeTab === 'products' ? (
                 <>
@@ -354,7 +448,7 @@ setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
                             type="text"
                             placeholder="Giảm giá (%)"
                             value={form.discount}
-                            onChange={(e) => setForm({ ...form, discount: e.target.value })}
+                            readOnly
                             className="border border-gray-300 rounded px-4 py-2"
                         />
 
@@ -435,14 +529,14 @@ setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
             </thead>
             <tbody className="divide-y divide-gray-100">
                 {specs.map((spec, index) => (
-                    <tr key={index} className="hover:bg-blue-50/30 transition-colors group">
+                    <tr key={index} className="hover:bg-slate-50 transition-colors group">
                         <td className="px-4 py-2">
                             <input
                                 type="text"
                                 placeholder="Cấu hình..."
                                 value={spec.group_name}
                                 onChange={(e) => updateSpecField(index, 'group_name', e.target.value)}
-                                className="w-full bg-transparent focus:bg-white border-transparent focus:border-blue-300 px-2 py-1.5 rounded text-sm outline-none transition"
+                                className="w-full bg-transparent focus:bg-white border-transparent focus:border-slate-400 px-2 py-1.5 rounded text-sm outline-none transition"
                             />
                         </td>
                         <td className="px-4 py-2">
@@ -451,7 +545,7 @@ setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
                                 placeholder="RAM, CPU..."
                                 value={spec.spec_key}
                                 onChange={(e) => updateSpecField(index, 'spec_key', e.target.value)}
-                                className="w-full bg-transparent focus:bg-white border-transparent focus:border-blue-300 px-2 py-1.5 rounded text-sm outline-none transition font-medium text-gray-700"
+                                className="w-full bg-transparent focus:bg-white border-transparent focus:border-slate-400 px-2 py-1.5 rounded text-sm outline-none transition font-medium text-gray-700"
                             />
                         </td>
                         <td className="px-4 py-2">
@@ -460,7 +554,7 @@ setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
                                 placeholder="8GB, Apple M1..."
                                 value={spec.spec_value}
                                 onChange={(e) => updateSpecField(index, 'spec_value', e.target.value)}
-                                className="w-full bg-transparent focus:bg-white border-transparent focus:border-blue-300 px-2 py-1.5 rounded text-sm outline-none transition"
+                                className="w-full bg-transparent focus:bg-white border-transparent focus:border-slate-400 px-2 py-1.5 rounded text-sm outline-none transition"
                             />
                         </td>
                         <td className="px-4 py-2 text-center">
@@ -494,7 +588,7 @@ setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
                 const lastSpec = specs[specs.length - 1];
                 setSpecs([...specs, { group_name: lastSpec?.group_name || '', spec_key: '', spec_value: '' }]);
             }}
-            className="flex-1 flex justify-center items-center gap-2 bg-white border border-gray-300 hover:border-green-500 hover:text-green-600 text-gray-600 px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm"
+            className="flex-1 flex justify-center items-center gap-2 rounded border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-all hover:border-gray-400"
         >
             <span>+ Thêm dòng (Cùng nhóm)</span>
         </button>
@@ -502,7 +596,7 @@ setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
         <button
             type="button"
             onClick={() => setSpecs([...specs, { group_name: '', spec_key: '', spec_value: '' }])}
-            className="flex-1 flex justify-center items-center gap-2 bg-white border border-gray-300 hover:border-indigo-500 hover:text-indigo-600 text-gray-600 px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm"
+            className="flex-1 flex justify-center items-center gap-2 rounded border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-all hover:border-gray-400"
         >
             <span>+ Thêm nhóm mới</span>
         </button>
@@ -510,15 +604,20 @@ setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
 </div>
                         <button
                             type="submit"
-                            className="col-span-1 md:col-span-2 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
+                            className="w-full rounded border border-gray-600 bg-white py-2 font-semibold text-gray-700 transition hover:bg-gray-100"
                         >
                             {editingProduct ? 'Cập nhật sản phẩm' : ' Thêm sản phẩm'}
                         </button>
                     </form>
 
                     <h2 className="text-2xl font-semibold mb-4">Danh sách sản phẩm</h2>
+                    {normalizedSearch && (
+                        <p className="mb-3 text-sm text-slate-500">
+                            Kết quả tìm kiếm: {filteredProducts.length} sản phẩm
+                        </p>
+                    )}
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6 items-stretch">
-                        {products.map((item) => (
+                        {filteredProducts.map((item) => (
                             <div
                                 key={item.id}
                                 className="bg-white rounded-lg shadow p-4 flex flex-col justify-between text-center border hover:shadow-lg transition-all duration-200 h-full"
@@ -543,18 +642,30 @@ setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
                                     <p className="text-sm text-gray-500">
                                         Loại: {categories.find((c) => c.value === item.category)?.label || 'Không xác định'}
                                     </p>
+                                    <p className={`text-sm font-medium ${item.is_out_of_stock ? 'text-red-600' : 'text-green-600'}`}>
+                                        {item.is_out_of_stock ? 'Trạng thái: Hết hàng' : 'Trạng thái: Còn hàng'}
+                                    </p>
                                 </div>
 
-                                <div className="mt-auto flex gap-2 justify-center pt-3">
+                                <div className="mt-auto flex gap-2 justify-center pt-3 flex-wrap">
                                     <button
                                         onClick={() => handleEdit(item)}
-                                        className="bg-yellow-400 hover:bg-yellow-500 text-white px-3 py-1 rounded"
+                                        className="rounded border border-gray-500 px-4 py-1.5 text-sm text-gray-700 transition hover:bg-gray-100"
                                     >
                                         Sửa
                                     </button>
                                     <button
+                                        onClick={() => handleToggleOutOfStock(item)}
+                                        className={`rounded border px-4 py-1.5 text-sm transition ${item.is_out_of_stock
+                                            ? 'border-green-500 text-green-600 hover:bg-green-50'
+                                            : 'border-amber-500 text-amber-600 hover:bg-amber-50'
+                                            }`}
+                                    >
+                                        {item.is_out_of_stock ? 'Mở bán' : 'Hết hàng'}
+                                    </button>
+                                    <button
                                         onClick={() => handleDelete(item.id)}
-                                        className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
+                                        className="rounded border border-red-500 px-4 py-1.5 text-sm text-red-500 transition hover:bg-red-50"
                                     >
                                         Xóa
                                     </button>
@@ -562,6 +673,11 @@ setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
                             </div>
                         ))}
                     </div>
+                    {normalizedSearch && filteredProducts.length === 0 && (
+                        <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                            Không tìm thấy sản phẩm phù hợp.
+                        </div>
+                    )}
                 </>
             ) : activeTab === 'orders' ? (
                 <OrderManagement />
@@ -575,28 +691,32 @@ setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
                 <SupportManagement />
             )}
 
-            <Footers />
+                    <Footers />
+                </main>
+            </div>
 
             {/* ✅ Popup thông báo kiểu alert */}
-            {popup.show && (
-                <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[9999]">
-                    <div
-                        className={`rounded-xl shadow-lg p-6 w-[350px] text-center ${popup.type === 'success' ? 'bg-green-600' : 'bg-red-600'
-                            } text-white`}
-                    >
-                        <h2 className="text-lg font-semibold mb-3">
-                            {popup.type === 'success' ? 'Thành công 🎉' : 'Thông báo ⚠️'}
-                        </h2>
-                        <p className="mb-5">{popup.message}</p>
-                        <button
-                            onClick={closePopup}
-                            className="bg-white text-gray-800 px-6 py-2 rounded-lg font-semibold hover:bg-gray-100 transition"
-                        >
-                            OK
-                        </button>
-                    </div>
-                </div>
-            )}
+          {popup.show && (
+  <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[9999]">
+    <div
+      className={`rounded-xl shadow-lg p-6 w-[350px] text-center 
+      bg-white text-black`}
+    >
+      <h2 className="text-lg font-semibold mb-3">
+        {popup.type === 'success' ? 'Thành công' : 'Thông báo'}
+      </h2>
+
+      <p className="mb-5">{popup.message}</p>
+
+      <button
+        onClick={closePopup}
+        className="w-full rounded border border-gray-600 bg-white py-2 font-semibold text-gray-700 transition hover:bg-gray-100"
+      >
+        OK
+      </button>
+    </div>
+  </div>
+)}
         </div>
     );
 };

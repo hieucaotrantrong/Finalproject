@@ -56,7 +56,7 @@ const SupportManagement = () => {
     if (error) return <div className="text-red-500 text-center py-4">{error}</div>;
 
     return (
-        <div className="p-6 bg-white rounded-xl shadow-lg border border-yellow-300">
+        <div className="p-6 bg-white rounded-xl shadow-lg border border-slate-200">
 
             {requests.length === 0 ? (
                 <p className="text-gray-500 text-center py-8">
@@ -68,12 +68,12 @@ const SupportManagement = () => {
                         <div
                             key={request.id}
                             className={`border rounded-xl shadow-sm transition-all hover:shadow-md overflow-hidden ${request.status === 'pending'
-                                ? 'border-yellow-400'
+                                ? 'border-slate-300'
                                 : 'border-green-500'
                                 }`}
                         >
                             {/* Header */}
-                            <div className="flex justify-between items-start bg-yellow-50 px-5 py-3 border-b">
+                            <div className="flex justify-between items-start bg-slate-50 px-5 py-3 border-b border-slate-200">
                                 <div>
                                     <h3 className="font-semibold text-lg text-gray-800 capitalize">
                                         {request.name}
@@ -87,7 +87,7 @@ const SupportManagement = () => {
                                     </p>
                                     <span
                                         className={`inline-block mt-1 text-xs px-2 py-1 rounded-full font-semibold ${request.status === 'pending'
-                                            ? 'bg-yellow-400 text-gray-800'
+                                            ? 'bg-slate-200 text-slate-800'
                                             : 'bg-green-500 text-white'
                                             }`}
                                     >
@@ -102,7 +102,7 @@ const SupportManagement = () => {
                                     <span className="font-medium text-gray-700">Chủ đề:</span>{' '}
                                     <span className="text-gray-800">{request.topic}</span>
                                 </div>
-                                <div className="text-gray-700 border-l-4 border-yellow-400 pl-3 italic">
+                                <div className="text-gray-700 border-l-4 border-slate-400 pl-3 italic">
                                     {request.message}
                                 </div>
                             </div>
@@ -123,13 +123,13 @@ const SupportManagement = () => {
                                             <textarea
                                                 value={reply}
                                                 onChange={(e) => setReply(e.target.value)}
-                                                className="w-full border border-yellow-300 rounded-md p-3 h-28 focus:ring-2 focus:ring-yellow-400 outline-none"
+                                                className="w-full border border-slate-300 rounded-md p-3 h-28 focus:ring-2 focus:ring-slate-300 outline-none"
                                                 placeholder="✏ Nhập nội dung phản hồi..."
                                             />
                                             <div className="flex gap-2 justify-end">
                                                 <button
                                                     onClick={() => handleReply(request.id)}
-                                                    className="bg-yellow-400 text-black font-semibold px-4 py-2 rounded-lg shadow hover:bg-yellow-500 transition"
+                                                    className="rounded border border-blue-600 bg-blue-600 px-4 py-2 font-semibold text-white transition hover:bg-blue-700"
                                                 >
                                                     Gửi phản hồi
                                                 </button>
@@ -138,7 +138,7 @@ const SupportManagement = () => {
                                                         setSelectedRequest(null);
                                                         setReply('');
                                                     }}
-                                                    className="bg-gray-300 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-400 transition"
+                                                    className="rounded border border-gray-500 px-4 py-2 text-gray-700 transition hover:bg-gray-100"
                                                 >
                                                     Hủy
                                                 </button>
@@ -147,7 +147,7 @@ const SupportManagement = () => {
                                     ) : (
                                         <button
                                             onClick={() => setSelectedRequest(request.id)}
-                                            className="text-yellow-600 font-semibold hover:text-yellow-700 transition ml-4 mb-2"
+                                            className="ml-4 mb-2 rounded border border-gray-500 px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
                                         >
                                             Trả lời yêu cầu này
                                         </button>

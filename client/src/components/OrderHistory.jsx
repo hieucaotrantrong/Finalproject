@@ -147,12 +147,12 @@ const OrderHistory = () => {
 
     const getStatusStyle = (status) => {
         const styles = {
-            pending: { text: 'Chờ xác nhận', color: 'text-yellow-600', icon: <FaClock /> },
-            confirmed: { text: 'Đã xác nhận', color: 'text-blue-600', icon: <FaBox /> },
-            shipping: { text: 'Đang giao hàng', color: 'text-indigo-600', icon: <FaTruck /> },
-            completed: { text: 'Thành công', color: 'text-green-600' },
-            cancelled: { text: 'Đã hủy', color: 'text-red-600', icon: <FaTimesCircle /> },
-        };
+  pending: { text: 'Chờ xác nhận', class: 'bg-yellow-100 text-yellow-600' },
+  confirmed: { text: 'Đã xác nhận', class: 'bg-blue-100 text-blue-600' },
+  shipping: { text: 'Đang giao hàng', class: 'bg-indigo-100 text-indigo-600' },
+  completed: { text: 'Thành công', class: 'bg-green-100 text-green-600' },
+  cancelled: { text: 'Đã hủy', class: 'bg-red-100 text-red-600' },
+};
         return styles[status] || styles.pending;
     };
 
@@ -247,7 +247,7 @@ const OrderHistory = () => {
                                                     <h4 className="font-medium text-gray-800 line-clamp-2 max-w-md">
                                                         {order.product_title}
                                                     </h4>
-                                                    <p className="text-sm text-gray-500 mt-1">Mã đơn: #{order.id}</p>
+                                                    
                                                     <div className="mt-2 text-xs text-gray-400 space-y-0.5">
                                                         <p>Người nhận: {order.full_name}</p>
                                                         <p>SĐT: {order.phone}</p>
@@ -270,7 +270,7 @@ const OrderHistory = () => {
                                                 {order.status === 'pending' && (
                                                     <button
                                                         onClick={() => handleCancelOrder(order.id)}
-                                                        className="px-4 py-1.5 border border-red-500 text-red-500 rounded text-sm hover:bg-red-50"
+                                                        className="px-4 py-1.5 border border-red-500 text-yellow-500 rounded text-sm "
                                                     >
                                                         Hủy đơn
                                                     </button>
@@ -285,7 +285,7 @@ const OrderHistory = () => {
                                                 )}
                                                 <Link
                                                     to={`/product/${order.product_id}`}
-                                                    className="px-4 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 shadow-sm"
+                                                    className="px-4 py-1.5 bg-white text-gray-800 border border-yellow-300 rounded text-sm hover:bg-gray-100 shadow-sm"
                                                 >
                                                     Xem chi tiết
                                                 </Link>

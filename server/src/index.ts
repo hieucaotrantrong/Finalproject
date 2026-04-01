@@ -22,6 +22,13 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+const ensureProductStockColumn = async () => {
+    await pool.query(`
+        ALTER TABLE products
+        ADD COLUMN IF NOT EXISTS is_out_of_stock BOOLEAN NOT NULL DEFAULT FALSE
+    `);
+};
+
 /*------------------------------------
 Middleware
 --------------------------------------*/
@@ -58,6 +65,14 @@ pool.connect()
     .then(client => {
         console.log("Database connected successfully!");
         client.release();
+
+        ensureProductStockColumn()
+            .then(() => {
+                console.log("Ensured products.is_out_of_stock column exists.");
+            })
+            .catch((err) => {
+                console.error("Failed to ensure products.is_out_of_stock column:", err);
+            });
     })
     .catch(err => {
         console.error("Database connection failed:", err);

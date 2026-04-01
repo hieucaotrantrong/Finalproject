@@ -19,13 +19,13 @@ import ChatBotIcon from "./components/ChatBotIcon";
 import CartPayPage from "./components/CartPayPage";
 import SupportPage from "./components/SupportPage";
 import PromoBanner from './components/PromoBanner';
-import Profile from './pages/Profile';
+import Profile from './components/Profile';
 import OrderHistory from './components/OrderHistory';
 import { useState } from 'react';
 import SocialLogin from "./components/SocialLogin";
 import ForgotPassword from "./components/ForgotPassword";
 
-import FavoritePage from './pages/FavoritePage';
+import FavoritePage from './components/FavoritePage';
 
 /*----------------------------------
 Home Create

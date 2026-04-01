@@ -71,25 +71,25 @@ const RevenueManagement = () => {
     const handleExportPdf = () => {
         const doc = new jsPDF();
         const reportDate = formatDate(new Date());
-        const startFilter = fromDate ? formatDate(fromDate) : 'Tat ca';
-        const endFilter = toDate ? formatDate(toDate) : 'Tat ca';
+        const startFilter = fromDate ? formatDate(fromDate) : 'Tất cả';
+        const endFilter = toDate ? formatDate(toDate) : 'ất cả';
 
         doc.setFontSize(16);
-        doc.text('Bao cao doanh thu', 14, 16);
+        doc.text('Báo cáo doanh thu', 14, 16);
 
         doc.setFontSize(11);
-        doc.text(`Ngay xuat: ${reportDate}`, 14, 24);
-        doc.text(`Loc tu: ${startFilter} - den: ${endFilter}`, 14, 30);
+        doc.text(`Ngày xuất: ${reportDate}`, 14, 24);
+        doc.text(`Lọc từ: ${startFilter} - đến: ${endFilter}`, 14, 30);
 
         autoTable(doc, {
             startY: 36,
             head: [['Chi so', 'Gia tri']],
             body: [
-                ['Tong doanh thu', formatCurrency(summary.totalRevenue)],
-                ['Don hoan thanh', Number(summary.completedOrders || 0).toLocaleString('vi-VN')],
-                ['San pham da ban', Number(summary.totalItems || 0).toLocaleString('vi-VN')],
-                ['Gia tri TB moi don', formatCurrency(summary.averageOrderValue)],
-                ['Ty le hoan thanh', `${Number(summary.completionRate || 0).toFixed(1)}%`]
+                ['Tổng doanh thu', formatCurrency(summary.totalRevenue)],
+                ['Đơn hoàn thành', Number(summary.completedOrders || 0).toLocaleString('vi-VN')],
+                ['Sản phẩm đã bán', Number(summary.totalItems || 0).toLocaleString('vi-VN')],
+                ['Giá trị TB mỗi đơn', formatCurrency(summary.averageOrderValue)],
+                ['Tỷ lệ hoàn thành', `${Number(summary.completionRate || 0).toFixed(1)}%`]
             ],
             styles: { fontSize: 10 }
         });
@@ -323,7 +323,7 @@ const RevenueManagement = () => {
         }
 
         return {
-            labels: ['Don hoan thanh', 'Don chua hoan thanh'],
+            labels: ['Đơn hoàn thành', 'Đơn chưa hoàn thành'],
             datasets: [
                 {
                     data: [completed, incomplete],
@@ -361,7 +361,7 @@ const RevenueManagement = () => {
 
                         <div className="flex flex-wrap items-end gap-3 w-full lg:w-auto">
                             <div className="w-full sm:w-[220px]">
-                                <label className="block text-xs text-gray-500 mb-1">Tu ngay</label>
+                                <label className="block text-xs text-gray-500 mb-1">Từ ngày</label>
                                 <input
                                     type="date"
                                     value={fromDate}
@@ -371,7 +371,7 @@ const RevenueManagement = () => {
                             </div>
 
                             <div className="w-full sm:w-[220px]">
-                                <label className="block text-xs text-gray-500 mb-1">Den ngay</label>
+                                <label className="block text-xs text-gray-500 mb-1">Đến ngày</label>
                                 <input
                                     type="date"
                                     value={toDate}
@@ -390,7 +390,7 @@ const RevenueManagement = () => {
                                 onClick={handleExportPdf}
                                 className={`${tabLikeButtonClass} whitespace-nowrap`}
                             >
-                                Xuat PDF
+                               Xuất PDF
                             </button>
                             <button
                                 onClick={() => {
@@ -400,13 +400,13 @@ const RevenueManagement = () => {
                                 }}
                                 className={`${tabLikeButtonClass} whitespace-nowrap`}
                             >
-                                Xoa loc
+                                Xóa lọc
                             </button>
                         </div>
                     </div>
 
                     {hasFilter && (
-                        <p className="text-xs text-cyan-600 mt-3">Dang loc du lieu theo khoang ngay da chon.</p>
+                        <p className="text-xs text-cyan-600 mt-3">Đang lọc dữ liệu theo khoảng ngày đã chọn.</p>
                     )}
                     {error && (
                         <p className="text-sm text-rose-600 mt-3">{error}</p>
@@ -415,22 +415,22 @@ const RevenueManagement = () => {
 
                 <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                     <article className={`${panelClass} p-4`}>
-                        <p className="text-gray-500 text-sm">Tong doanh thu</p>
+                        <p className="text-gray-500 text-sm">Tổng doanh thu</p>
                         <p className="text-2xl font-bold text-cyan-600 mt-1">{formatCurrency(summary.totalRevenue)}</p>
                     </article>
 
                     <article className={`${panelClass} p-4`}>
-                        <p className="text-gray-500 text-sm">Don hoan thanh</p>
+                        <p className="text-gray-500 text-sm">Đơn hoàn thành</p>
                         <p className="text-2xl font-bold text-emerald-600 mt-1">{Number(summary.completedOrders || 0).toLocaleString('vi-VN')}</p>
                     </article>
 
                     <article className={`${panelClass} p-4`}>
-                        <p className="text-gray-500 text-sm">San pham da ban</p>
+                        <p className="text-gray-500 text-sm">Sản phẩm đã bán</p>
                         <p className="text-2xl font-bold text-amber-600 mt-1">{Number(summary.totalItems || 0).toLocaleString('vi-VN')}</p>
                     </article>
 
                     <article className={`${panelClass} p-4`}>
-                        <p className="text-gray-500 text-sm">Gia tri TB moi don</p>
+                        <p className="text-gray-500 text-sm">Giá trị TB mỗi đơn</p>
                         <p className="text-2xl font-bold text-indigo-600 mt-1">{formatCurrency(summary.averageOrderValue)}</p>
                     </article>
                 </section>
@@ -439,13 +439,13 @@ const RevenueManagement = () => {
                     <article className={`${panelClass} p-5`}>
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="font-semibold text-lg">Doanh thu theo ngay</h3>
-                            <span className="text-xs text-gray-500">Top 14 ngay gan nhat</span>
+                            <span className="text-xs text-gray-500">Top 14 ngày gần nhất</span>
                         </div>
                         <div className="h-72">
                             {loading ? (
-                                <div className="h-full flex items-center justify-center text-gray-500">Dang tai du lieu...</div>
+                                <div className="h-full flex items-center justify-center text-gray-500">Đang tải dữ liệu...</div>
                             ) : revenueSeries.length === 0 ? (
-                                <div className="h-full flex items-center justify-center text-gray-500">Chua co du lieu doanh thu.</div>
+                                <div className="h-full flex items-center justify-center text-gray-500">Chưa có dữ liệu doanh thu.</div>
                             ) : (
                                 <Bar data={revenueBarData} options={revenueBarOptions} />
                             )}
@@ -454,20 +454,20 @@ const RevenueManagement = () => {
 
                     <div className="space-y-4">
                         <article className={`${panelClass} p-5`}>
-                            <h3 className="font-semibold text-lg mb-3">Ti le don hoan thanh</h3>
+                            <h3 className="font-semibold text-lg mb-3">Tỷ lệ đơn hoàn thành</h3>
                             <div className="w-[240px] h-[240px] mx-auto">
                                 <Doughnut data={completionRatioData} options={completionRatioOptions} />
                             </div>
                             <p className="text-center text-cyan-600 text-sm mt-2">
-                                Ty le hoan thanh: {Number(summary.completionRate || 0).toFixed(1)}%
+                                Tỷ lệ hoàn thành: {Number(summary.completionRate || 0).toFixed(1)}%
                             </p>
                         </article>
 
                         <article className={`${panelClass} p-5`}>
-                            <h3 className="font-semibold text-lg mb-3">Xu huong gia tri don hang</h3>
+                            <h3 className="font-semibold text-lg mb-3">Xu hướng giá trị đơn hàng</h3>
                             <div className="h-40">
                                 {revenueSeries.length === 0 ? (
-                                    <div className="h-full flex items-center justify-center text-gray-500">Chua co du lieu.</div>
+                                    <div className="h-full flex items-center justify-center text-gray-500">Chưa có dữ liệu.</div>
                                 ) : (
                                     <Line data={trendLineData} options={trendLineOptions} />
                                 )}
@@ -482,16 +482,16 @@ const RevenueManagement = () => {
                     </div>
 
                     {loading ? (
-                        <div className="p-5 text-gray-500">Dang tai du lieu...</div>
+                        <div className="p-5 text-gray-500">Đang tải dữ liệu...</div>
                     ) : byDate.length === 0 ? (
-                        <div className="p-5 text-gray-500">Chua co don hoan thanh trong khoang thoi gian nay.</div>
+                        <div className="p-5 text-gray-500">Chưa có đơn hoàn thành trong khoảng thời gian này.</div>
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead className="bg-gray-50 text-gray-600 uppercase text-xs">
                                     <tr>
-                                        <th className="text-left px-4 py-3">Ngay</th>
-                                        <th className="text-left px-4 py-3">So don hoan thanh</th>
+                                        <th className="text-left px-4 py-3">Ngày</th>
+                                        <th className="text-left px-4 py-3">Số đơn hoàn thành</th>
                                         <th className="text-left px-4 py-3">Doanh thu</th>
                                     </tr>
                                 </thead>

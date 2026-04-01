@@ -1,15 +1,16 @@
 import React, { useEffect, useState, useRef } from "react";
-import Home from "../components/Home";
-import Footers from "../components/Footers";
-import Carousel from "../components/Carousel";
+import Home from "./Home";
+import Footers from "./Footers";
+import Carousel from "./Carousel";
 import { useCart } from "../context/CartContext";
-import CartItem from "../components/CartItem";
+import CartItem from "./CartItem";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/20/solid";
 
 const SIDE_PREFIX = "side::";
 
 const isSideBanner = (imageUrl = "") => imageUrl.startsWith(SIDE_PREFIX);
 const toDisplayImageUrl = (imageUrl = "") => imageUrl.replace(SIDE_PREFIX, "");
+const normalizeOutOfStock = (value) => value === true || value === 1 || value === "1" || value === "true";
 
 const FavoritePage = () => {
     const [favorites, setFavorites] = useState([]);
@@ -18,8 +19,41 @@ const FavoritePage = () => {
     const carouselRef = useRef(null);
 
     useEffect(() => {
-        const fav = JSON.parse(localStorage.getItem("favorites")) || [];
-        setFavorites(fav);
+        const rawFavorites = JSON.parse(localStorage.getItem("favorites")) || [];
+        const safeFavorites = Array.isArray(rawFavorites) ? rawFavorites : [];
+
+        const syncFavorites = async () => {
+            try {
+                const response = await fetch("http://localhost:5000/api/products");
+                const allProducts = await response.json();
+                const productMap = new Map(
+                    (Array.isArray(allProducts) ? allProducts : []).map((product) => [product.id, product])
+                );
+
+                const mergedFavorites = safeFavorites.map((item) => {
+                    const latest = productMap.get(item.id);
+                    const merged = latest ? { ...item, ...latest } : { ...item };
+
+                    return {
+                        ...merged,
+                        is_out_of_stock: normalizeOutOfStock(merged.is_out_of_stock)
+                    };
+                });
+
+                setFavorites(mergedFavorites);
+                localStorage.setItem("favorites", JSON.stringify(mergedFavorites));
+            } catch (error) {
+                const normalizedFavorites = safeFavorites.map((item) => ({
+                    ...item,
+                    is_out_of_stock: normalizeOutOfStock(item.is_out_of_stock)
+                }));
+
+                setFavorites(normalizedFavorites);
+                localStorage.setItem("favorites", JSON.stringify(normalizedFavorites));
+            }
+        };
+
+        syncFavorites();
     }, []);
 
     useEffect(() => {
@@ -61,8 +95,18 @@ const FavoritePage = () => {
     };
 
     const handleAddToCart = (product) => {
-        addToCart(product);
-        alert(`✅ Đã thêm "${product.title}" vào giỏ hàng!`);
+        const normalizedProduct = {
+            ...product,
+            is_out_of_stock: normalizeOutOfStock(product?.is_out_of_stock)
+        };
+
+        if (normalizedProduct.is_out_of_stock) {
+            alert(`Sản phẩm "${product.title}" hiện đang hết hàng.`);
+            return;
+        }
+
+        addToCart(normalizedProduct);
+        alert(` Đã thêm "${product.title}" vào giỏ hàng!`);
     };
 
     const scroll = (direction) => {
@@ -131,7 +175,11 @@ const FavoritePage = () => {
                             <div className="flex gap-3 px-10">
                                 {favorites.map((item) => (
                                     <div key={item.id} className="flex-shrink-0 w-48 relative group">
-                                        <CartItem {...item} sold={item.sold} />
+                                        <CartItem
+                                            {...item}
+                                            sold={item.sold}
+                                            is_out_of_stock={normalizeOutOfStock(item.is_out_of_stock)}
+                                        />
                                         
                                         {/* Remove button overlay */}
                                         <button

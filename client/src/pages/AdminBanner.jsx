@@ -101,14 +101,12 @@ export default function AdminBanner() {
   };
 
   return (
-    <div className="p-10 bg-gray-100 min-h-screen">
+    <div className="p-10 bg-white min-h-screen">
 
-      <h1 className="text-2xl font-bold mb-6">
-        Quản lý Banner
-      </h1>
+    
 
       {/* Add banner */}
-      <div className="bg-yellow-400 p-3 rounded mb-6 text-center font-semibold">
+      <div className="bg-slate-100 border border-slate-200 p-3 rounded mb-6 text-center font-semibold text-slate-800">
         {editingId ? "Sửa Banner" : "Thêm Banner"}
       </div>
 
@@ -136,14 +134,14 @@ export default function AdminBanner() {
         {editingId ? (
           <button
             onClick={updateBanner}
-            className="bg-yellow-500 text-white px-4 py-2 rounded"
+            className="rounded border border-gray-300 bg-white px-4 py-2 text-gray-700 transition hover:border-gray-400"
           >
             Cập nhật
           </button>
         ) : (
           <button
             onClick={addBanner}
-            className="bg-blue-500 text-white px-4 py-2 rounded"
+            className="rounded border border-gray-300 bg-white px-4 py-2 text-gray-700 transition hover:border-gray-400"
           >
             Thêm
           </button>
@@ -152,16 +150,16 @@ export default function AdminBanner() {
       </div>
 
       {/* Banner table */}
-      <table className="w-full bg-white rounded shadow">
+      <table className="w-full bg-white rounded shadow text-sm">
 
-        <thead className="bg-yellow-400">
+        <thead className="bg-slate-100 text-slate-600 font-medium">
 
           <tr>
-            <th className="p-3">ID</th>
-            <th className="p-3">Banner</th>
-            <th className="p-3">Tên ảnh</th>
-            <th className="p-3">Loại</th>
-            <th className="p-3">Hành động</th>
+            <th className="p-3 font-medium">ID</th>
+            <th className="p-3 font-medium">Banner</th>
+            <th className="p-3 font-medium">Tên ảnh</th>
+            <th className="p-3 font-medium">Loại</th>
+            <th className="p-3 font-medium">Hành động</th>
           </tr>
 
         </thead>
@@ -193,14 +191,14 @@ export default function AdminBanner() {
 
                 <button
                   onClick={() => startEdit(banner)}
-                  className="bg-yellow-400 px-3 py-1 rounded mr-2"
+                  className="rounded border border-gray-500 px-3 py-1 mr-2 text-sm text-gray-700 transition hover:bg-gray-100"
                 >
                   Sửa
                 </button>
 
                 <button
                   onClick={() => deleteBanner(banner.id)}
-                  className="bg-red-500 text-white px-3 py-1 rounded"
+                  className="rounded border border-red-500 px-3 py-1 text-sm text-red-500 transition hover:bg-red-50"
                 >
                   Xóa
                 </button>

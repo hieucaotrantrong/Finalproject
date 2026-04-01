@@ -48,9 +48,16 @@ export const getUserById = async (req: Request, res: Response): Promise<void> =>
 export const createUser = async (req: Request, res: Response): Promise<void> => {
   try {
     const { first_name, last_name, email, password, role, phone, address, birth_date, gender, avatar } = req.body;
+    const normalizedFirstName = typeof first_name === 'string' ? first_name.trim() : '';
+    const normalizedLastName = typeof last_name === 'string' ? last_name.trim() : '';
 
     if (!email || !password) {
       res.status(400).json({ error: 'Email và password là bắt buộc' });
+      return;
+    }
+
+    if (!normalizedFirstName || !normalizedLastName) {
+      res.status(400).json({ error: 'first_name và last_name là bắt buộc' });
       return;
     }
 
@@ -68,8 +75,8 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
       `INSERT INTO users (first_name, last_name, email, password, role, phone, address, birth_date, gender, avatar, updated_at) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP)`,
       [
-        first_name || null,
-        last_name || null,
+        normalizedFirstName,
+        normalizedLastName,
         email,
         hashed,
         role || 'user',
@@ -96,7 +103,40 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
     const id = req.params.id;
     const { first_name, last_name, role, phone, address, birth_date, gender, avatar } = req.body;
 
+    const existingUser = await pool.query(
+      `SELECT first_name, last_name, role, phone, address, birth_date, gender, avatar
+       FROM users
+       WHERE id = $1
+       LIMIT 1`,
+      [id]
+    );
+
+    if (existingUser.rows.length === 0) {
+      res.status(404).json({ error: 'Người dùng không tồn tại' });
+      return;
+    }
+
+    const current = existingUser.rows[0];
+
+    const nextFirstNameRaw = typeof first_name === 'string' ? first_name.trim() : current.first_name;
+    const nextLastNameRaw = typeof last_name === 'string' ? last_name.trim() : current.last_name;
+
+    if (!nextFirstNameRaw || !nextLastNameRaw) {
+      res.status(400).json({ error: 'first_name và last_name không được để trống' });
+      return;
+    }
+
+    const nextRole = typeof role === 'string' && role.trim() ? role.trim() : current.role;
+    const nextPhone = phone === undefined ? current.phone : (phone || null);
+    const nextAddress = address === undefined ? current.address : (address || null);
+    const nextBirthDate = birth_date === undefined ? current.birth_date : (birth_date || null);
+    const nextAvatar = avatar === undefined ? current.avatar : (avatar || null);
+
     let genderValue = gender;
+
+    if (gender === undefined) {
+      genderValue = current.gender;
+    }
 
     if (!['male', 'female', 'other'].includes(genderValue)) {
       genderValue = null;
@@ -115,14 +155,14 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
            updated_at = CURRENT_TIMESTAMP
        WHERE id = $9`,
       [
-        first_name || null,
-        last_name || null,
-        role || null,
-        phone || null,
-        address || null,
-        birth_date || null,
+        nextFirstNameRaw,
+        nextLastNameRaw,
+        nextRole,
+        nextPhone,
+        nextAddress,
+        nextBirthDate,
         genderValue,
-        avatar || null,
+        nextAvatar,
         id
       ]
     );

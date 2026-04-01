@@ -4,7 +4,8 @@ import {
     createProduct,
     deleteProduct,
     updateProduct,
-    getProductById
+    getProductById,
+    updateProductStockStatus
 } from '../controllers/product.controller';
 
 const router = Router();
@@ -26,5 +27,6 @@ router.get('/:id', asyncHandler(getProductById));
 router.post('/', asyncHandler(createProduct));
 router.delete('/:id', asyncHandler(deleteProduct));
 router.put('/:id', asyncHandler(updateProduct));
+router.patch('/:id/stock-status', asyncHandler(updateProductStockStatus));
 
 export default router;

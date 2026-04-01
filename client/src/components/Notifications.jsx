@@ -21,7 +21,7 @@ const Notifications = () => {
 
             const response = await axios.get(`http://localhost:5000/api/notifications/${userEmail}`);
 
-            const newNotifications = response.data;
+            const newNotifications = Array.isArray(response.data) ? response.data : [];
 
             setNotifications(newNotifications);
             setUnread(newNotifications.filter(n => !n.is_read).length);
@@ -32,9 +32,15 @@ const Notifications = () => {
 
     useEffect(() => {
         fetchNotifications();
-        const interval = setInterval(fetchNotifications, 30000);
+        const interval = setInterval(fetchNotifications, 10000);
         return () => clearInterval(interval);
     }, []);
+
+    useEffect(() => {
+        if (isOpen) {
+            fetchNotifications();
+        }
+    }, [isOpen]);
 
     // ================= CLICK OUTSIDE =================
     useEffect(() => {
@@ -51,6 +57,7 @@ const Notifications = () => {
     // ================= HOVER DELAY =================
     const handleMouseEnter = () => {
         clearTimeout(timeoutRef.current);
+        fetchNotifications();
         setIsOpen(true);
     };
 
