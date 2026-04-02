@@ -72,6 +72,28 @@ const replyToRequest = asyncHandler((req, res) => __awaiter(void 0, void 0, void
 /*----------------------------------
 Create support request
 -----------------------------------*/
+const getAdminEmails = () => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const result = yield database_1.default.query(`SELECT email FROM users WHERE role = 'admin'`);
+        return result.rows
+            .map((row) => row.email)
+            .filter((email) => Boolean(email));
+    }
+    catch (error) {
+        console.error('Lỗi lấy admin emails:', error);
+        return [];
+    }
+});
+const notifyAdminsNewSupport = (customerEmail, customerName, topic) => __awaiter(void 0, void 0, void 0, function* () {
+    const adminEmails = yield getAdminEmails();
+    if (adminEmails.length === 0)
+        return;
+    const title = 'Yêu cầu hỗ trợ mới';
+    const message = `${customerName} (${customerEmail}) vừa gửi yêu cầu hỗ trợ: "${topic}"`;
+    yield database_1.default.query(`INSERT INTO notifications (user_email, title, message, is_read)
+         SELECT email, $1, $2, FALSE
+         FROM unnest($3::text[]) AS email`, [title, message, adminEmails]);
+});
 const createRequest = asyncHandler((req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { name, email, topic, message } = req.body;
@@ -81,6 +103,7 @@ const createRequest = asyncHandler((req, res) => __awaiter(void 0, void 0, void 
         }
         yield database_1.default.query(`INSERT INTO support_requests (name, email, topic, message)
              VALUES ($1, $2, $3, $4)`, [name, email, topic, message]);
+        yield notifyAdminsNewSupport(email, name, topic);
         res.status(201).json({ success: true });
     }
     catch (error) {

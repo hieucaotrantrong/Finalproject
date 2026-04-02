@@ -79,6 +79,39 @@ const replyToRequest = asyncHandler(async (req: Request, res: Response) => {
 /*----------------------------------
 Create support request
 -----------------------------------*/
+const getAdminEmails = async (): Promise<string[]> => {
+    try {
+        const result = await pool.query(
+            `SELECT email FROM users WHERE role = 'admin'`
+        );
+        return result.rows
+            .map((row: any) => row.email)
+            .filter((email: string) => Boolean(email));
+    } catch (error) {
+        console.error('Lỗi lấy admin emails:', error);
+        return [];
+    }
+};
+
+const notifyAdminsNewSupport = async (
+    customerEmail: string,
+    customerName: string,
+    topic: string
+): Promise<void> => {
+    const adminEmails = await getAdminEmails();
+    if (adminEmails.length === 0) return;
+
+    const title = 'Yêu cầu hỗ trợ mới';
+    const message = `${customerName} (${customerEmail}) vừa gửi yêu cầu hỗ trợ: "${topic}"`;
+
+    await pool.query(
+        `INSERT INTO notifications (user_email, title, message, is_read)
+         SELECT email, $1, $2, FALSE
+         FROM unnest($3::text[]) AS email`,
+        [title, message, adminEmails]
+    );
+};
+
 const createRequest = asyncHandler(async (req: Request, res: Response) => {
     try {
         const { name, email, topic, message } = req.body;
@@ -93,6 +126,8 @@ const createRequest = asyncHandler(async (req: Request, res: Response) => {
              VALUES ($1, $2, $3, $4)`,
             [name, email, topic, message]
         );
+
+        await notifyAdminsNewSupport(email, name, topic);
 
         res.status(201).json({ success: true });
     } catch (error) {

@@ -14,12 +14,13 @@ export default function Carousel() {
       .then((res) => res.json())
       .then((data) => {
         const filtered = (data || []).filter((item) => !isSideBanner(item.image_url));
-        setBanners(filtered);
+        setBanners(filtered.slice(0, 2));
       })
       .catch(() => setBanners([]));
   }, []);
 
   const resolveBannerSrc = (imageUrl) => {
+    if (!imageUrl) return "";
     const cleanImageUrl = toDisplayImageUrl(imageUrl);
     if (!cleanImageUrl) return "";
 
@@ -31,7 +32,9 @@ export default function Carousel() {
       return cleanImageUrl;
     }
 
-    return `/assets/${cleanImageUrl}`;
+    const finalUrl = `/assets/${cleanImageUrl}`;
+    console.log('Banner URL:', { imageUrl, cleanImageUrl, finalUrl });
+    return finalUrl;
   };
 
 

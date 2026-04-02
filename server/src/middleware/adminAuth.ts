@@ -22,6 +22,12 @@ export const adminAuth = async (
             return;
         }
 
+        // 🔒 Kiểm tra role = 'admin'
+        if (decoded.role !== 'admin') {
+            res.status(403).json({ error: 'Bạn không có quyền truy cập admin' });
+            return;
+        }
+
         req.user = decoded;
         next();
     } catch (error) {

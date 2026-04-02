@@ -7,19 +7,15 @@ const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const body_parser_1 = __importDefault(require("body-parser"));
 const authRoutes_1 = __importDefault(require("./routes/authRoutes"));
-const wallet_1 = __importDefault(require("./routes/wallet"));
 const bannerRouter_1 = __importDefault(require("./routes/bannerRouter"));
 const shipping_1 = __importDefault(require("./routes/shipping"));
+const order_routes_1 = __importDefault(require("./routes/order.routes"));
 const app = (0, express_1.default)();
-/*----------------------------------
------------------------------------*/
 app.use((0, cors_1.default)());
 app.use(body_parser_1.default.json({ limit: '15mb' }));
 app.use(body_parser_1.default.urlencoded({ extended: true, limit: '15mb' }));
-/*----------------------------------
------------------------------------*/
 app.use('/api/auth', authRoutes_1.default);
-app.use('/api/wallet', wallet_1.default);
 app.use("/api/banners", bannerRouter_1.default);
 app.use('/api/shipping', shipping_1.default);
+app.use('/api/orders', order_routes_1.default);
 exports.default = app;

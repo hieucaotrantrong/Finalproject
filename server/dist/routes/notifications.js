@@ -55,4 +55,28 @@ router.put('/:id/read', asyncHandler((req, res) => __awaiter(void 0, void 0, voi
         res.status(500).json({ error: 'Lỗi server' });
     }
 })));
+/*----------------------------------
+   Đánh dấu đã đọc tất cả theo danh sách id
+-----------------------------------*/
+router.put('/read-all', asyncHandler((req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b;
+    try {
+        const ids = Array.isArray((_a = req.body) === null || _a === void 0 ? void 0 : _a.ids) ? req.body.ids : [];
+        const numericIds = ids
+            .map((id) => Number(id))
+            .filter((id) => Number.isInteger(id) && id > 0);
+        if (numericIds.length === 0) {
+            res.json({ success: true, updated: 0 });
+            return;
+        }
+        const result = yield database_1.default.query(`UPDATE notifications
+             SET is_read = TRUE
+             WHERE id = ANY($1::int[])`, [numericIds]);
+        res.json({ success: true, updated: (_b = result.rowCount) !== null && _b !== void 0 ? _b : 0 });
+    }
+    catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Lỗi server' });
+    }
+})));
 exports.default = router;

@@ -19,4 +19,5 @@ router.get('/:id', asyncHandler(product_controller_1.getProductById));
 router.post('/', asyncHandler(product_controller_1.createProduct));
 router.delete('/:id', asyncHandler(product_controller_1.deleteProduct));
 router.put('/:id', asyncHandler(product_controller_1.updateProduct));
+router.patch('/:id/stock-status', asyncHandler(product_controller_1.updateProductStockStatus));
 exports.default = router;

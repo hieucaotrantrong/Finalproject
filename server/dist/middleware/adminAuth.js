@@ -27,6 +27,11 @@ const adminAuth = (req, res, next) => __awaiter(void 0, void 0, void 0, function
             res.status(403).json({ error: 'Token không hợp lệ' });
             return;
         }
+        // 🔒 Kiểm tra role = 'admin'
+        if (decoded.role !== 'admin') {
+            res.status(403).json({ error: 'Bạn không có quyền truy cập admin' });
+            return;
+        }
         req.user = decoded;
         next();
     }

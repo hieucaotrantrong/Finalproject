@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 export interface DecodedToken {
     userId: string;
+    email?: string;
+    role?: string;
     // Add other properties as needed
 }
 

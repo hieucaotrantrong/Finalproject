@@ -12,86 +12,205 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getUserOrders = exports.updateOrderStatus = exports.getAllOrders = exports.createOrder = void 0;
+exports.getUserOrders = exports.deleteUserOrder = exports.cancelUserOrder = exports.updateOrderStatus = exports.getRevenueSummary = exports.getAllOrders = exports.momoIPN = exports.createOrder = void 0;
 const database_1 = __importDefault(require("../config/database"));
-const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const axios_1 = __importDefault(require("axios"));
+const crypto_1 = __importDefault(require("crypto"));
+const crypto_2 = require("crypto");
+const getAdminEmails = () => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const result = yield database_1.default.query(`SELECT email FROM users WHERE role = 'admin'`);
+        return result.rows
+            .map((row) => row.email)
+            .filter((email) => Boolean(email));
+    }
+    catch (error) {
+        console.error('Lỗi khi lấy admin emails:', error);
+        return [];
+    }
+});
+const notifyAdminsNewOrder = (orderEmail, productTitle, quantity, paymentMethod) => __awaiter(void 0, void 0, void 0, function* () {
+    const adminEmails = yield getAdminEmails();
+    if (adminEmails.length === 0) {
+        return;
+    }
+    const title = 'Đơn hàng mới';
+    const message = `Khách ${orderEmail} vừa đặt ${quantity} x ${productTitle} (${paymentMethod.toUpperCase()}).`;
+    yield database_1.default.query(`INSERT INTO notifications (user_email, title, message, is_read)
+         SELECT email, $1, $2, FALSE
+         FROM unnest($3::text[]) AS email`, [title, message, adminEmails]);
+});
 /*-----------------------------------------
- Create order (wallet + COD)
+Create Order (COD + MoMo)
 -------------------------------------------*/
 const createOrder = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w;
     try {
-        const { fullName, email, phone, address, productId, productTitle, productPrice, quantity = 1, paymentMethod = "cod" } = req.body;
+        const { fullName, email, phone, address, productId, productTitle, productPrice, quantity = 1, shippingFee = 0, paymentMethod = "cod", returnUrl } = req.body;
+        // Validate
         if (!fullName || !email || !phone || !address || !productId || !productTitle || !productPrice) {
             res.status(400).json({ error: "Thiếu thông tin đơn hàng" });
             return;
         }
-        const totalAmount = productPrice * quantity;
+        const normalizedProductPrice = Number(productPrice) || 0;
+        const normalizedQuantity = Number(quantity) || 1;
+        const normalizedShippingFee = Number(shippingFee) || 0;
+        if (normalizedProductPrice <= 0 || normalizedQuantity <= 0 || normalizedShippingFee < 0) {
+            res.status(400).json({ error: "Dữ liệu tiền đơn hàng không hợp lệ" });
+            return;
+        }
+        const productCheck = yield database_1.default.query(`SELECT id, title, is_out_of_stock FROM products WHERE id = $1 LIMIT 1`, [productId]);
+        if (productCheck.rows.length === 0) {
+            res.status(404).json({ error: 'Sản phẩm không tồn tại' });
+            return;
+        }
+        if (Boolean((_a = productCheck.rows[0]) === null || _a === void 0 ? void 0 : _a.is_out_of_stock)) {
+            res.status(400).json({ error: 'Sản phẩm đã hết hàng, không thể đặt mua' });
+            return;
+        }
+        const totalAmount = normalizedProductPrice * normalizedQuantity + normalizedShippingFee;
         /*-----------------------------------------
-          THANH TOÁN BẰNG VÍ
+        THANH TOÁN MOMO
         -------------------------------------------*/
-        if (paymentMethod === "wallet") {
-            const token = (_a = req.headers.authorization) === null || _a === void 0 ? void 0 : _a.split(' ')[1];
-            if (!token) {
-                res.status(401).json({ error: "Cần đăng nhập để thanh toán bằng ví" });
-                return;
-            }
-            const decoded = jsonwebtoken_1.default.verify(token, process.env.JWT_SECRET);
-            const userId = decoded.userId;
-            // kiểm tra tồn tại ví
-            const walletResult = yield database_1.default.query(`SELECT id, balance FROM wallets WHERE user_id = $1`, [userId]);
-            const wallet = walletResult.rows[0];
-            if (!wallet || wallet.balance < totalAmount) {
-                res.status(400).json({ error: "Số dư ví không đủ để thanh toán" });
-                return;
-            }
-            const walletId = wallet.id;
-            // Start transaction
-            const client = yield database_1.default.connect();
+        if (paymentMethod === "momo") {
+            const partnerCode = "MOMO";
+            const accessKey = "F8BBA842ECF85";
+            const secretKey = "K951B6PE1waDMi640xX08PD3vg6EkVlz";
+            const orderId = (0, crypto_2.randomUUID)();
+            const requestId = orderId;
+            const amount = totalAmount.toString();
+            const isValidReturnUrl = typeof returnUrl === "string" &&
+                /^https?:\/\//i.test(returnUrl);
+            const redirectUrl = isValidReturnUrl
+                ? returnUrl
+                : `${process.env.FRONTEND_URL || "http://localhost:5173"}/orders`;
+            const ipnUrl = "http://localhost:5000/api/orders/momo-ipn";
+            const rawSignature = "accessKey=" + accessKey +
+                "&amount=" + amount +
+                "&extraData=" +
+                "&ipnUrl=" + ipnUrl +
+                "&orderId=" + orderId +
+                "&orderInfo=" + productTitle +
+                "&partnerCode=" + partnerCode +
+                "&redirectUrl=" + redirectUrl +
+                "&requestId=" + requestId +
+                "&requestType=captureWallet";
+            const signature = crypto_1.default
+                .createHmac("sha256", secretKey)
+                .update(rawSignature)
+                .digest("hex");
+            // Lưu đơn trước khi gọi MoMo
+            yield database_1.default.query(`INSERT INTO orders 
+                (id, full_name, email, phone, address, product_id, product_title, product_price, quantity, status, payment_method)
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending','momo')`, [
+                orderId,
+                fullName,
+                email,
+                phone,
+                address,
+                productId,
+                productTitle,
+                normalizedProductPrice,
+                normalizedQuantity
+            ]);
+            yield notifyAdminsNewOrder(email, productTitle, normalizedQuantity, 'momo');
             try {
-                yield client.query("BEGIN");
-                // Insert order
-                yield client.query(`INSERT INTO orders 
-                    (full_name, email, phone, address, product_id, product_title, product_price, status, payment_method) 
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, 'confirmed', 'wallet')`, [fullName, email, phone, address, productId, productTitle, productPrice]);
-                // trừ tiền ví
-                yield client.query(`UPDATE wallets SET balance = balance - $1 WHERE user_id = $2`, [totalAmount, userId]);
-                // Insert giao dịch ví đúng chuẩn
-                yield client.query(`INSERT INTO wallet_transactions (wallet_id, type, amount, description)
-                     VALUES ($1, 'payment', $2, $3)`, [walletId, totalAmount, `Thanh toán đơn hàng: ${productTitle}`]);
-                yield client.query("COMMIT");
+                // Gọi MoMo
+                const momoPayload = {
+                    partnerCode,
+                    accessKey,
+                    requestId,
+                    amount,
+                    orderId,
+                    extraData: "",
+                    orderInfo: productTitle,
+                    redirectUrl,
+                    ipnUrl,
+                    requestType: "captureWallet",
+                    signature,
+                    lang: "vi",
+                };
+                const response = yield axios_1.default.post("https://test-payment.momo.vn/v2/gateway/api/create", momoPayload, { timeout: 10000 });
+                const payUrl = (_b = response.data) === null || _b === void 0 ? void 0 : _b.payUrl;
+                if (!payUrl) {
+                    res.status(502).json({
+                        error: "MoMo không trả về link thanh toán",
+                        momoResultCode: (_c = response.data) === null || _c === void 0 ? void 0 : _c.resultCode,
+                        momoMessage: (_d = response.data) === null || _d === void 0 ? void 0 : _d.message,
+                        subErrors: ((_e = response.data) === null || _e === void 0 ? void 0 : _e.subErrors) || []
+                    });
+                    return;
+                }
                 res.json({
-                    message: "Đặt hàng & thanh toán thành công",
-                    paymentMethod: "wallet",
+                    paymentMethod: "momo",
+                    payUrl,
+                    momoResultCode: (_f = response.data) === null || _f === void 0 ? void 0 : _f.resultCode,
+                    momoMessage: (_g = response.data) === null || _g === void 0 ? void 0 : _g.message
                 });
             }
-            catch (err) {
-                yield client.query("ROLLBACK");
-                throw err;
+            catch (momoError) {
+                console.error("Lỗi gọi MoMo API:", {
+                    status: (_h = momoError.response) === null || _h === void 0 ? void 0 : _h.status,
+                    resultCode: (_k = (_j = momoError.response) === null || _j === void 0 ? void 0 : _j.data) === null || _k === void 0 ? void 0 : _k.resultCode,
+                    message: (_m = (_l = momoError.response) === null || _l === void 0 ? void 0 : _l.data) === null || _m === void 0 ? void 0 : _m.message,
+                    subErrors: (_p = (_o = momoError.response) === null || _o === void 0 ? void 0 : _o.data) === null || _p === void 0 ? void 0 : _p.subErrors,
+                    fullResponse: (_q = momoError.response) === null || _q === void 0 ? void 0 : _q.data
+                });
+                res.status(502).json({
+                    error: "Lỗi gọi MoMo API",
+                    momoResultCode: (_s = (_r = momoError.response) === null || _r === void 0 ? void 0 : _r.data) === null || _s === void 0 ? void 0 : _s.resultCode,
+                    momoMessage: (_u = (_t = momoError.response) === null || _t === void 0 ? void 0 : _t.data) === null || _u === void 0 ? void 0 : _u.message,
+                    subErrors: ((_w = (_v = momoError.response) === null || _v === void 0 ? void 0 : _v.data) === null || _w === void 0 ? void 0 : _w.subErrors) || []
+                });
             }
-            finally {
-                client.release();
-            }
+            return;
         }
-        else {
-            /*-----------------------------------------
-                THANH TOÁN COD
-            -------------------------------------------*/
-            yield database_1.default.query(`INSERT INTO orders 
-                (full_name, email, phone, address, product_id, product_title, product_price, status, payment_method)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', 'cod')`, [fullName, email, phone, address, productId, productTitle, productPrice]);
-            res.json({
-                message: "Đặt hàng thành công (COD)",
-                paymentMethod: "cod"
-            });
-        }
+        /*-----------------------------------------
+        THANH TOÁN COD
+        -------------------------------------------*/
+        yield database_1.default.query(`INSERT INTO orders 
+            (full_name, email, phone, address, product_id, product_title, product_price, quantity, status, payment_method)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pending','cod')`, [
+            fullName,
+            email,
+            phone,
+            address,
+            productId,
+            productTitle,
+            normalizedProductPrice,
+            normalizedQuantity
+        ]);
+        yield notifyAdminsNewOrder(email, productTitle, normalizedQuantity, 'cod');
+        res.json({
+            message: "Đặt hàng thành công (COD)",
+            paymentMethod: "cod"
+        });
+        return;
     }
     catch (error) {
         console.error(error);
         res.status(500).json({ error: "Lỗi server" });
+        return;
     }
 });
 exports.createOrder = createOrder;
+/*-----------------------------------------
+MoMo IPN (callback từ MoMo)
+-------------------------------------------*/
+const momoIPN = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { orderId, resultCode } = req.body;
+        if (resultCode === 0) {
+            yield database_1.default.query(`UPDATE orders SET status = 'confirmed' WHERE id = $1`, [orderId]);
+        }
+        res.json({ message: "OK" });
+    }
+    catch (error) {
+        console.error("Lỗi xử lý MoMo IPN:", error);
+        res.status(500).json({ error: "IPN error" });
+    }
+});
+exports.momoIPN = momoIPN;
 /*-----------------------------------------
     Get all orders
 -------------------------------------------*/
@@ -106,6 +225,97 @@ const getAllOrders = (req, res) => __awaiter(void 0, void 0, void 0, function* (
     }
 });
 exports.getAllOrders = getAllOrders;
+/*-----------------------------------------
+  Admin revenue summary
+-------------------------------------------*/
+const getRevenueSummary = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const from = typeof req.query.from === "string" ? req.query.from : undefined;
+        const to = typeof req.query.to === "string" ? req.query.to : undefined;
+        const dateConditions = [];
+        const values = [];
+        if (from) {
+            values.push(from);
+            dateConditions.push(`created_at::date >= $${values.length}`);
+        }
+        if (to) {
+            values.push(to);
+            dateConditions.push(`created_at::date <= $${values.length}`);
+        }
+        const allWhereClause = dateConditions.length
+            ? `WHERE ${dateConditions.join(" AND ")}`
+            : "";
+        const completedWhereClause = dateConditions.length
+            ? `WHERE status = 'completed' AND ${dateConditions.join(" AND ")}`
+            : `WHERE status = 'completed'`;
+        const summaryQuery = `
+            SELECT
+                COALESCE(SUM((product_price::numeric) * COALESCE(quantity, 1)), 0) AS total_revenue,
+                COUNT(*)::int AS completed_orders,
+                COALESCE(SUM(COALESCE(quantity, 1)), 0)::int AS total_items,
+                COALESCE(AVG((product_price::numeric) * COALESCE(quantity, 1)), 0) AS average_order_value
+            FROM orders
+            ${completedWhereClause}
+        `;
+        const byDateQuery = `
+            SELECT
+                created_at::date AS day,
+                COALESCE(SUM((product_price::numeric) * COALESCE(quantity, 1)), 0) AS revenue,
+                COUNT(*)::int AS orders
+            FROM orders
+            ${completedWhereClause}
+            GROUP BY created_at::date
+            ORDER BY day DESC
+        `;
+        const orderStatsQuery = `
+            SELECT
+                COUNT(*)::int AS total_orders,
+                COUNT(*) FILTER (WHERE status = 'completed')::int AS completed_orders
+            FROM orders
+            ${allWhereClause}
+        `;
+        const [summaryResult, byDateResult, orderStatsResult] = yield Promise.all([
+            database_1.default.query(summaryQuery, values),
+            database_1.default.query(byDateQuery, values),
+            database_1.default.query(orderStatsQuery, values)
+        ]);
+        const summary = summaryResult.rows[0] || {
+            total_revenue: 0,
+            completed_orders: 0,
+            total_items: 0,
+            average_order_value: 0
+        };
+        const orderStats = orderStatsResult.rows[0] || {
+            total_orders: 0,
+            completed_orders: 0
+        };
+        const totalOrders = Number(orderStats.total_orders || 0);
+        const completedOrders = Number(orderStats.completed_orders || 0);
+        const incompleteOrders = Math.max(totalOrders - completedOrders, 0);
+        const completionRate = totalOrders > 0 ? (completedOrders / totalOrders) * 100 : 0;
+        res.json({
+            summary: {
+                totalRevenue: Number(summary.total_revenue || 0),
+                completedOrders: Number(summary.completed_orders || 0),
+                totalItems: Number(summary.total_items || 0),
+                averageOrderValue: Number(summary.average_order_value || 0),
+                totalOrders,
+                incompleteOrders,
+                completionRate
+            },
+            byDate: (byDateResult.rows || []).map((row) => ({
+                day: row.day,
+                revenue: Number(row.revenue || 0),
+                orders: Number(row.orders || 0)
+            }))
+        });
+    }
+    catch (error) {
+        console.error("Lỗi khi lấy tổng quan doanh thu:", error);
+        res.status(500).json({ error: "Lỗi server" });
+    }
+});
+exports.getRevenueSummary = getRevenueSummary;
 /*-----------------------------------------
   Update order status
 -------------------------------------------*/
@@ -158,12 +368,104 @@ const updateOrderStatus = (req, res) => __awaiter(void 0, void 0, void 0, functi
 });
 exports.updateOrderStatus = updateOrderStatus;
 /*-----------------------------------------
+  User cancel own pending order
+-------------------------------------------*/
+const cancelUserOrder = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b;
+    try {
+        const { id } = req.params;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.userId;
+        if (!userId) {
+            res.status(401).json({ error: 'Không tìm thấy thông tin người dùng' });
+            return;
+        }
+        const userResult = yield database_1.default.query(`SELECT email FROM users WHERE id = $1`, [userId]);
+        const userEmail = (_b = userResult.rows[0]) === null || _b === void 0 ? void 0 : _b.email;
+        if (!userEmail) {
+            res.status(404).json({ error: 'Không tìm thấy người dùng' });
+            return;
+        }
+        const orderResult = yield database_1.default.query(`SELECT * FROM orders WHERE id = $1`, [id]);
+        if (orderResult.rows.length === 0) {
+            res.status(404).json({ error: 'Không tìm thấy đơn hàng' });
+            return;
+        }
+        const order = orderResult.rows[0];
+        if (order.email !== userEmail) {
+            res.status(403).json({ error: 'Bạn không có quyền thao tác đơn hàng này' });
+            return;
+        }
+        if (order.status !== 'pending') {
+            res.status(400).json({ error: 'Chỉ có thể hủy đơn ở trạng thái chờ xác nhận' });
+            return;
+        }
+        yield database_1.default.query(`UPDATE orders SET status = 'cancelled' WHERE id = $1`, [id]);
+        yield database_1.default.query(`INSERT INTO notifications (user_email, title, message, is_read)
+             VALUES ($1, $2, $3, FALSE)`, [
+            order.email,
+            `Đơn hàng ${order.product_title}`,
+            'Bạn đã hủy đơn hàng thành công.'
+        ]);
+        res.json({ message: 'Hủy đơn hàng thành công' });
+    }
+    catch (error) {
+        console.error('Lỗi khi user hủy đơn:', error);
+        res.status(500).json({ error: 'Lỗi server' });
+    }
+});
+exports.cancelUserOrder = cancelUserOrder;
+/*-----------------------------------------
+  User delete own completed/cancelled order
+-------------------------------------------*/
+const deleteUserOrder = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b;
+    try {
+        const { id } = req.params;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.userId;
+        if (!userId) {
+            res.status(401).json({ error: 'Không tìm thấy thông tin người dùng' });
+            return;
+        }
+        const userResult = yield database_1.default.query(`SELECT email FROM users WHERE id = $1`, [userId]);
+        const userEmail = (_b = userResult.rows[0]) === null || _b === void 0 ? void 0 : _b.email;
+        if (!userEmail) {
+            res.status(404).json({ error: 'Không tìm thấy người dùng' });
+            return;
+        }
+        const orderResult = yield database_1.default.query(`SELECT * FROM orders WHERE id = $1`, [id]);
+        if (orderResult.rows.length === 0) {
+            res.status(404).json({ error: 'Không tìm thấy đơn hàng' });
+            return;
+        }
+        const order = orderResult.rows[0];
+        if (order.email !== userEmail) {
+            res.status(403).json({ error: 'Bạn không có quyền thao tác đơn hàng này' });
+            return;
+        }
+        if (!['completed', 'cancelled'].includes(order.status)) {
+            res.status(400).json({ error: 'Chỉ được xóa đơn đã giao hoặc đã hủy' });
+            return;
+        }
+        yield database_1.default.query(`DELETE FROM orders WHERE id = $1`, [id]);
+        res.json({ message: 'Xóa đơn hàng thành công' });
+    }
+    catch (error) {
+        console.error('Lỗi khi user xóa đơn:', error);
+        res.status(500).json({ error: 'Lỗi server' });
+    }
+});
+exports.deleteUserOrder = deleteUserOrder;
+/*-----------------------------------------
   Get user orders
 -------------------------------------------*/
 const getUserOrders = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { email } = req.params;
-        const result = yield database_1.default.query(`SELECT * FROM orders WHERE email = $1 ORDER BY created_at DESC`, [email]);
+        const result = yield database_1.default.query(`SELECT o.*, p.image AS product_image
+             FROM orders o
+             LEFT JOIN products p ON p.id = o.product_id
+             WHERE o.email = $1
+             ORDER BY o.created_at DESC`, [email]);
         res.json(result.rows);
     }
     catch (error) {

@@ -35,6 +35,16 @@ router.get('/github', asyncHandler(authController.githubAuth));
 router.get('/github/callback', asyncHandler(authController.githubLogin));
 
 /*----------------------------------
+Verify Token
+-----------------------------------*/
+router.get('/verify-token', auth, asyncHandler((req: any, res: any) => {
+    res.json({
+        valid: true,
+        user: req.user
+    });
+}));
+
+/*----------------------------------
 Profile Routes
 -----------------------------------*/
 router.get('/profile', auth, asyncHandler(authController.getProfile));

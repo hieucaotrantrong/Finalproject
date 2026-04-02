@@ -22,9 +22,16 @@ const Notifications = () => {
             const response = await axios.get(`http://localhost:5000/api/notifications/${userEmail}`);
 
             const newNotifications = Array.isArray(response.data) ? response.data : [];
+            
+            // Filter để chỉ show thông báo từ admin (không show thông báo cho user là customer)
+            // Nếu thông báo chứa từ "đơn hàng", "hỗ trợ" thì là cho admin
+            const adminNotifications = newNotifications.filter(n => 
+                !n.title.toLowerCase().includes('phản hồi cho yêu cầu') &&
+                !n.message.toLowerCase().includes('cập nhật đơn hàng của bạn')
+            );
 
-            setNotifications(newNotifications);
-            setUnread(newNotifications.filter(n => !n.is_read).length);
+            setNotifications(adminNotifications);
+            setUnread(adminNotifications.filter(n => !n.is_read).length);
         } catch (error) {
             console.error('Lỗi khi tải thông báo:', error);
         }

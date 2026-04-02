@@ -1,4 +1,13 @@
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -13,7 +22,6 @@ const chatbot_1 = __importDefault(require("./routes/chatbot"));
 const order_routes_1 = __importDefault(require("./routes/order.routes"));
 const support_1 = __importDefault(require("./routes/support"));
 const notifications_1 = __importDefault(require("./routes/notifications"));
-const wallet_1 = __importDefault(require("./routes/wallet"));
 const admin_1 = __importDefault(require("./routes/admin"));
 const path_1 = __importDefault(require("path"));
 const bannerRouter_1 = __importDefault(require("./routes/bannerRouter"));
@@ -26,6 +34,12 @@ Dotnev
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5000;
+const ensureProductStockColumn = () => __awaiter(void 0, void 0, void 0, function* () {
+    yield database_1.default.query(`
+        ALTER TABLE products
+        ADD COLUMN IF NOT EXISTS is_out_of_stock BOOLEAN NOT NULL DEFAULT FALSE
+    `);
+});
 /*------------------------------------
 Middleware
 --------------------------------------*/
@@ -42,7 +56,6 @@ app.use('/api/chatbot', chatbot_1.default);
 app.use('/api/orders', order_routes_1.default);
 app.use("/api/support", support_1.default);
 app.use('/api/notifications', notifications_1.default);
-app.use('/api/wallet', wallet_1.default);
 app.use('/api/admin', admin_1.default);
 app.use('/api/banners', bannerRouter_1.default);
 app.use("/api/password", password_routes_1.default);
@@ -61,6 +74,13 @@ database_1.default.connect()
     .then(client => {
     console.log("Database connected successfully!");
     client.release();
+    ensureProductStockColumn()
+        .then(() => {
+        console.log("Ensured products.is_out_of_stock column exists.");
+    })
+        .catch((err) => {
+        console.error("Failed to ensure products.is_out_of_stock column:", err);
+    });
 })
     .catch(err => {
     console.error("Database connection failed:", err);
