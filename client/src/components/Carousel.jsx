@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 
 const SIDE_PREFIX = "side::";
+const TOP_PREFIX = "top::";
 
 const isSideBanner = (imageUrl = "") => imageUrl.startsWith(SIDE_PREFIX);
 const toDisplayImageUrl = (imageUrl = "") => imageUrl.replace(SIDE_PREFIX, "");
@@ -13,7 +14,10 @@ export default function Carousel() {
     fetch("http://localhost:5000/api/banners")
       .then((res) => res.json())
       .then((data) => {
-        const filtered = (data || []).filter((item) => !isSideBanner(item.image_url));
+        const filtered = (data || []).filter((item) => {
+          const imageUrl = item?.image_url || "";
+          return !isSideBanner(imageUrl) && !String(imageUrl).startsWith(TOP_PREFIX);
+        });
         setBanners(filtered.slice(0, 2));
       })
       .catch(() => setBanners([]));

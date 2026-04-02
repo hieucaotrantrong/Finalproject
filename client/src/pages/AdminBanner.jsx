@@ -1,13 +1,25 @@
 import React, { useEffect, useState } from "react";
 
 const SIDE_PREFIX = "side::";
+const TOP_PREFIX = "top::";
 
 const isSideBanner = (imageUrl = "") => imageUrl.startsWith(SIDE_PREFIX);
+const isTopBanner = (imageUrl = "") => imageUrl.startsWith(TOP_PREFIX);
 const toStoredImageUrl = (imageUrl = "", type = "carousel") => {
   const cleaned = imageUrl.replace(SIDE_PREFIX, "");
-  return type === "side" ? `${SIDE_PREFIX}${cleaned}` : cleaned;
+  const cleanedTop = cleaned.replace(TOP_PREFIX, "");
+
+  if (type === "side") {
+    return `${SIDE_PREFIX}${cleanedTop}`;
+  }
+
+  if (type === "top") {
+    return `${TOP_PREFIX}${cleanedTop}`;
+  }
+
+  return cleanedTop;
 };
-const toDisplayImageUrl = (imageUrl = "") => imageUrl.replace(SIDE_PREFIX, "");
+const toDisplayImageUrl = (imageUrl = "") => imageUrl.replace(SIDE_PREFIX, "").replace(TOP_PREFIX, "");
 
 export default function AdminBanner() {
 
@@ -63,7 +75,7 @@ export default function AdminBanner() {
   const startEdit = (banner) => {
     setEditingId(banner.id);
     setImage(toDisplayImageUrl(banner.image_url));
-    setBannerType(isSideBanner(banner.image_url) ? "side" : "carousel");
+    setBannerType(isSideBanner(banner.image_url) ? "side" : isTopBanner(banner.image_url) ? "top" : "carousel");
   };
 
   /* Update */
@@ -129,6 +141,7 @@ export default function AdminBanner() {
         >
           <option value="carousel">Banner chính (slider)</option>
           <option value="side">Banner ngang nhỏ (2 bên)</option>
+          <option value="top">Banner đầu header</option>
         </select>
 
         {editingId ? (
@@ -184,7 +197,11 @@ export default function AdminBanner() {
               </td>
 
               <td className="p-3">
-                {isSideBanner(banner.image_url) ? "Banner ngang nhỏ" : "Banner chính"}
+                {isSideBanner(banner.image_url)
+                  ? "Banner ngang nhỏ"
+                  : isTopBanner(banner.image_url)
+                    ? "Banner đầu header"
+                    : "Banner chính"}
               </td>
 
               <td className="p-3">

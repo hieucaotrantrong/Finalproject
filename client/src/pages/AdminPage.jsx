@@ -11,6 +11,7 @@ import AdminBanner from './AdminBanner';
 import Notifications from '../components/Notifications';
 
 const SIDE_PREFIX = 'side::';
+const TOP_PREFIX = 'top::';
 
 const AdminPage = () => {
     const [activeTab, setActiveTab] = useState('products');
@@ -110,7 +111,9 @@ const [specs, setSpecs] = useState([
         try {
             const res = await axios.get('http://localhost:5000/api/banners');
             const filtered = (res.data || []).filter((banner) =>
-                banner?.image_url && !String(banner.image_url).startsWith(SIDE_PREFIX)
+                banner?.image_url &&
+                !String(banner.image_url).startsWith(SIDE_PREFIX) &&
+                !String(banner.image_url).startsWith(TOP_PREFIX)
             );
             setBanners(filtered.slice(0, 2));
         } catch (error) {

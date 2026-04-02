@@ -19,6 +19,13 @@ const menuItems = [
     { icon: <img src="https://cdn.tgdd.vn/content/tien-ich-24x24.png" className="w-5 h-5" />, label: "Dịch vụ tiện ích" },
 ];
 
+const SIDE_PREFIX = "side::";
+const TOP_PREFIX = "top::";
+
+const isSideBanner = (imageUrl = "") => imageUrl.startsWith(SIDE_PREFIX);
+const isTopBanner = (imageUrl = "") => imageUrl.startsWith(TOP_PREFIX);
+const toDisplayImageUrl = (imageUrl = "") => imageUrl.replace(SIDE_PREFIX, "").replace(TOP_PREFIX, "");
+
 export default function Header({ initialSearchQuery = '', onSearchSubmit, onCategorySelect, onSearchClear }) {
 
     const navigate = useNavigate();
@@ -30,6 +37,7 @@ export default function Header({ initialSearchQuery = '', onSearchSubmit, onCate
     const [showSuggest, setShowSuggest] = useState(false);
     const [activeIndex, setActiveIndex] = useState(-1);
     const [debounceTimer, setDebounceTimer] = useState(null);
+    const [topBannerUrl, setTopBannerUrl] = useState("");
 
     useEffect(() => {
         const history = JSON.parse(localStorage.getItem("searchHistory")) || [];
@@ -39,6 +47,43 @@ export default function Header({ initialSearchQuery = '', onSearchSubmit, onCate
     useEffect(() => {
         setSearchQuery(initialSearchQuery);
     }, [initialSearchQuery]);
+
+    useEffect(() => {
+        fetch("http://localhost:5000/api/banners")
+            .then((res) => res.json())
+            .then((data) => {
+                if (!Array.isArray(data) || data.length === 0) {
+                    setTopBannerUrl("");
+                    return;
+                }
+
+                const preferredBanner = data.find((item) => isTopBanner(item.image_url));
+
+                if (!preferredBanner) {
+                    setTopBannerUrl("");
+                    return;
+                }
+
+                const cleanImageUrl = toDisplayImageUrl(preferredBanner?.image_url || "");
+
+                if (!cleanImageUrl) {
+                    setTopBannerUrl("");
+                    return;
+                }
+
+                if (
+                    cleanImageUrl.startsWith("http://") ||
+                    cleanImageUrl.startsWith("https://") ||
+                    cleanImageUrl.startsWith("/")
+                ) {
+                    setTopBannerUrl(cleanImageUrl);
+                    return;
+                }
+
+                setTopBannerUrl(`/assets/${cleanImageUrl}`);
+            })
+            .catch(() => setTopBannerUrl(""));
+    }, []);
 
     // Click outside close dropdown
     useEffect(() => {
@@ -183,9 +228,23 @@ export default function Header({ initialSearchQuery = '', onSearchSubmit, onCate
     };
 
     return (
-        <header className="w-full bg-[#ffd400]">
+        <div className="w-full">
 
-            <div className="w-full max-w-[1280px] mx-auto flex items-center px-4 py-2">
+            {topBannerUrl && (
+                <div className="w-full bg-[#fbc219] border-b border-[#f2b700]">
+                    <div className="w-full max-w-[1280px] mx-auto px-4 py-0">
+                        <img
+                            src={topBannerUrl}
+                            alt="Top header banner"
+                            className="block w-full h-[40px] md:h-[42px] object-cover object-center"
+                        />
+                    </div>
+                </div>
+            )}
+
+            <header className="w-full bg-[#ffd400]">
+
+                <div className="w-full max-w-[1280px] mx-auto flex items-center px-4 py-2">
 
                 <div className="flex items-center w-[600px]">
 
@@ -289,7 +348,7 @@ export default function Header({ initialSearchQuery = '', onSearchSubmit, onCate
 
             </div>
 
-            <div className="w-full max-w-[1280px] mx-auto flex flex-wrap gap-7 px-4 py-3 text-sm font-normal">
+                <div className="w-full max-w-[1280px] mx-auto flex flex-wrap gap-7 px-4 py-3 text-sm font-normal">
 
                 {menuItems.map((item, index) => (
                     <div
@@ -302,8 +361,10 @@ export default function Header({ initialSearchQuery = '', onSearchSubmit, onCate
                     </div>
                 ))}
 
-            </div>
+                </div>
 
-        </header>
+            </header>
+
+        </div>
     );
 }

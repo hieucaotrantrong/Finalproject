@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import pool from '../config/database';
 import { DecodedToken } from '../types/auth';
 
 export const adminAuth = async (
@@ -22,8 +23,15 @@ export const adminAuth = async (
             return;
         }
 
-        // 🔒 Kiểm tra role = 'admin'
-        if (decoded.role !== 'admin') {
+        const userResult = await pool.query(
+            'SELECT role FROM users WHERE id = $1 LIMIT 1',
+            [decoded.userId]
+        );
+
+        const userRole = userResult.rows[0]?.role;
+
+        // 🔒 Kiểm tra quyền admin từ dữ liệu user thật trong DB
+        if (userRole !== 'admin') {
             res.status(403).json({ error: 'Bạn không có quyền truy cập admin' });
             return;
         }
