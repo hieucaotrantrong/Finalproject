@@ -16,6 +16,26 @@ import {
 
 const DEFAULT_AVATAR = '/assets/avt.jpg';
 const API_BASE_URL = 'http://localhost:5000/api';
+const TOP_PREFIX = 'top::';
+
+const isTopBanner = (imageUrl = '') => String(imageUrl).startsWith(TOP_PREFIX);
+const toDisplayImageUrl = (imageUrl = '') => String(imageUrl).replace(TOP_PREFIX, '');
+
+const resolveBannerSrc = (imageUrl = '') => {
+    const cleanImageUrl = toDisplayImageUrl(imageUrl);
+
+    if (!cleanImageUrl) return '';
+
+    if (
+        cleanImageUrl.startsWith('http://') ||
+        cleanImageUrl.startsWith('https://') ||
+        cleanImageUrl.startsWith('/')
+    ) {
+        return cleanImageUrl;
+    }
+
+    return `/assets/${cleanImageUrl}`;
+};
 
 export default function Home({ onFilterChange }) {
     const [user, setUser] = useState(null);
@@ -37,6 +57,7 @@ export default function Home({ onFilterChange }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('');
+    const [topBannerUrl, setTopBannerUrl] = useState('');
     const navigate = useNavigate();
     const searchRef = useRef(null);
     const { cartItems, getTotalItems, getTotalPrice, updateQuantity, removeFromCart, isCartOpen, setIsCartOpen } = useCart();
@@ -80,6 +101,22 @@ export default function Home({ onFilterChange }) {
         setSearchHistory(history);
         // Load provinces on component mount
         fetchProvinces();
+    }, []);
+
+    useEffect(() => {
+        fetch('http://localhost:5000/api/banners')
+            .then((res) => res.json())
+            .then((data) => {
+                const topBanner = (Array.isArray(data) ? data : []).find((banner) => isTopBanner(banner?.image_url));
+
+                if (!topBanner) {
+                    setTopBannerUrl('');
+                    return;
+                }
+
+                setTopBannerUrl(resolveBannerSrc(topBanner.image_url));
+            })
+            .catch(() => setTopBannerUrl(''));
     }, []);
 
     useEffect(() => {
@@ -430,6 +467,18 @@ export default function Home({ onFilterChange }) {
 
     return (
         <div>
+
+            {topBannerUrl && (
+                <div className="w-full bg-[#fbc219] border-b border-[#f2b700]">
+                    <div className="w-full max-w-[1280px] mx-auto px-4 py-0">
+                        <img
+                            src={topBannerUrl}
+                            alt="Top banner"
+                            className="block w-full h-[40px] md:h-[42px] object-cover object-center"
+                        />
+                    </div>
+                </div>
+            )}
 
             <header className="w-full bg-[#ffd400]">
                 <div className="w-full max-w-[1280px] mx-auto flex items-center justify-between px-4 py-2">

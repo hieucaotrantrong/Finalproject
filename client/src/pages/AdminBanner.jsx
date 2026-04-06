@@ -139,9 +139,9 @@ export default function AdminBanner() {
           onChange={(e) => setBannerType(e.target.value)}
           className="border p-2 rounded"
         >
-          <option value="carousel">Banner chính (slider)</option>
-          <option value="side">Banner ngang nhỏ (2 bên)</option>
-          <option value="top">Banner đầu header</option>
+          <option value="carousel">Banner chính </option>
+          <option value="side">Banner 2 bên</option>
+          <option value="top">Banner đầu </option>
         </select>
 
         {editingId ? (

@@ -1,5 +1,28 @@
 import React, { useState, useEffect } from "react";
 
+const SIDE_PREFIX = "side::";
+const TOP_PREFIX = "top::";
+
+const isSideBanner = (imageUrl = "") => imageUrl.startsWith(SIDE_PREFIX);
+const isTopBanner = (imageUrl = "") => imageUrl.startsWith(TOP_PREFIX);
+const toDisplayImageUrl = (imageUrl = "") => imageUrl.replace(SIDE_PREFIX, "").replace(TOP_PREFIX, "");
+
+const resolveBannerSrc = (imageUrl = "") => {
+  const cleanImageUrl = toDisplayImageUrl(imageUrl);
+
+  if (!cleanImageUrl) return "";
+
+  if (
+    cleanImageUrl.startsWith("http://") ||
+    cleanImageUrl.startsWith("https://") ||
+    cleanImageUrl.startsWith("/")
+  ) {
+    return cleanImageUrl;
+  }
+
+  return `/assets/${cleanImageUrl}`;
+};
+
 export default function PromoBanner() {
 
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -9,7 +32,14 @@ export default function PromoBanner() {
   useEffect(() => {
     fetch("http://localhost:5000/api/banners")
       .then((res) => res.json())
-      .then((data) => setBanners(data || []))
+      .then((data) => {
+        const horizontalBanners = (data || []).filter((banner) => {
+          const imageUrl = banner?.image_url || "";
+          return !isSideBanner(imageUrl) && !isTopBanner(imageUrl);
+        });
+
+        setBanners(horizontalBanners.slice(0, 2));
+      })
       .catch(() => setBanners([]));
   }, []);
 
@@ -46,9 +76,9 @@ export default function PromoBanner() {
               <div key={banner.id ?? index} className="w-full flex-shrink-0">
 
                 <img
-                  src={`/assets/${banner.image_url}`}
+                    src={resolveBannerSrc(banner.image_url)}
                   alt={`banner-${index}`}
-                  className="w-full h-56 object-fill"
+                    className="w-full h-56 object-cover"
                 />
 
               </div>

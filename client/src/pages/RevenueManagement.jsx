@@ -478,7 +478,7 @@ const RevenueManagement = () => {
 
                 <section className={`${panelClass} overflow-hidden`}>
                     <div className="px-5 py-4 border-b border-gray-200">
-                        <h3 className="font-semibold text-lg">Chi tiet doanh thu theo ngay</h3>
+                        <h3 className="font-semibold text-lg">Chi tiết doanh thu theo ngày</h3>
                     </div>
 
                     {loading ? (

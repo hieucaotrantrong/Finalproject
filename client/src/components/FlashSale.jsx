@@ -115,6 +115,7 @@ export default function FlashSale() {
                 )}
 
             </div>
+            
         </>
 
     );
