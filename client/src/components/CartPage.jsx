@@ -11,27 +11,31 @@ const CartPage = ({ searchQuery = '', categoryFilter = '' }) => {
     const [products, setProducts] = useState([]);
     const [showAll, setShowAll] = useState(false);
 
+    const fetchProducts = async () => {
+
+        try {
+
+            const response = await axios.get("http://localhost:5000/api/products");
+            const combinedProducts = [...productsMock, ...response.data];
+            setProducts(combinedProducts);
+
+        } catch (error) {
+
+            console.error("Lỗi khi lấy sản phẩm từ API:", error);
+            setProducts(productsMock);
+
+        }
+
+    };
+
     useEffect(() => {
-
-        const fetchProducts = async () => {
-
-            try {
-
-                const response = await axios.get("http://localhost:5000/api/products");
-                const combinedProducts = [...productsMock, ...response.data];
-                setProducts(combinedProducts);
-
-            } catch (error) {
-
-                console.error("Lỗi khi lấy sản phẩm từ API:", error);
-                setProducts(productsMock);
-
-            }
-
-        };
-
         fetchProducts();
 
+        const intervalId = setInterval(() => {
+            fetchProducts();
+        }, 1000);
+
+        return () => clearInterval(intervalId);
     }, []);
 
     const filteredProducts = products.filter(product => {

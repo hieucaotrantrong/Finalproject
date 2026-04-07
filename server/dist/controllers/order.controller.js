@@ -17,6 +17,8 @@ const database_1 = __importDefault(require("../config/database"));
 const axios_1 = __importDefault(require("axios"));
 const crypto_1 = __importDefault(require("crypto"));
 const crypto_2 = require("crypto");
+const inventory_service_1 = require("../services/inventory.service");
+const STOCK_DEDUCT_STATUSES = new Set(['confirmed', 'shipping', 'completed']);
 const getAdminEmails = () => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const result = yield database_1.default.query(`SELECT email FROM users WHERE role = 'admin'`);
@@ -44,7 +46,7 @@ const notifyAdminsNewOrder = (orderEmail, productTitle, quantity, paymentMethod)
 Create Order (COD + MoMo)
 -------------------------------------------*/
 const createOrder = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x;
     try {
         const { fullName, email, phone, address, productId, productTitle, productPrice, quantity = 1, shippingFee = 0, paymentMethod = "cod", returnUrl } = req.body;
         // Validate
@@ -59,13 +61,28 @@ const createOrder = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
             res.status(400).json({ error: "Dữ liệu tiền đơn hàng không hợp lệ" });
             return;
         }
-        const productCheck = yield database_1.default.query(`SELECT id, title, is_out_of_stock FROM products WHERE id = $1 LIMIT 1`, [productId]);
+        const productCheck = yield database_1.default.query(`SELECT
+                p.id,
+                p.title,
+                p.is_out_of_stock,
+                COALESCE(inv.quantity, 0)::int AS stock_quantity
+             FROM products p
+             LEFT JOIN product_inventory inv ON inv.product_id = p.id
+             WHERE p.id = $1
+             LIMIT 1`, [productId]);
         if (productCheck.rows.length === 0) {
             res.status(404).json({ error: 'Sản phẩm không tồn tại' });
             return;
         }
         if (Boolean((_a = productCheck.rows[0]) === null || _a === void 0 ? void 0 : _a.is_out_of_stock)) {
             res.status(400).json({ error: 'Sản phẩm đã hết hàng, không thể đặt mua' });
+            return;
+        }
+        const availableStock = Number(((_b = productCheck.rows[0]) === null || _b === void 0 ? void 0 : _b.stock_quantity) || 0);
+        if (availableStock < normalizedQuantity) {
+            res.status(400).json({
+                error: `Sản phẩm không đủ tồn kho. Hiện còn ${availableStock}, yêu cầu ${normalizedQuantity}`
+            });
             return;
         }
         const totalAmount = normalizedProductPrice * normalizedQuantity + normalizedShippingFee;
@@ -131,36 +148,36 @@ const createOrder = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
                     lang: "vi",
                 };
                 const response = yield axios_1.default.post("https://test-payment.momo.vn/v2/gateway/api/create", momoPayload, { timeout: 10000 });
-                const payUrl = (_b = response.data) === null || _b === void 0 ? void 0 : _b.payUrl;
+                const payUrl = (_c = response.data) === null || _c === void 0 ? void 0 : _c.payUrl;
                 if (!payUrl) {
                     res.status(502).json({
                         error: "MoMo không trả về link thanh toán",
-                        momoResultCode: (_c = response.data) === null || _c === void 0 ? void 0 : _c.resultCode,
-                        momoMessage: (_d = response.data) === null || _d === void 0 ? void 0 : _d.message,
-                        subErrors: ((_e = response.data) === null || _e === void 0 ? void 0 : _e.subErrors) || []
+                        momoResultCode: (_d = response.data) === null || _d === void 0 ? void 0 : _d.resultCode,
+                        momoMessage: (_e = response.data) === null || _e === void 0 ? void 0 : _e.message,
+                        subErrors: ((_f = response.data) === null || _f === void 0 ? void 0 : _f.subErrors) || []
                     });
                     return;
                 }
                 res.json({
                     paymentMethod: "momo",
                     payUrl,
-                    momoResultCode: (_f = response.data) === null || _f === void 0 ? void 0 : _f.resultCode,
-                    momoMessage: (_g = response.data) === null || _g === void 0 ? void 0 : _g.message
+                    momoResultCode: (_g = response.data) === null || _g === void 0 ? void 0 : _g.resultCode,
+                    momoMessage: (_h = response.data) === null || _h === void 0 ? void 0 : _h.message
                 });
             }
             catch (momoError) {
                 console.error("Lỗi gọi MoMo API:", {
-                    status: (_h = momoError.response) === null || _h === void 0 ? void 0 : _h.status,
-                    resultCode: (_k = (_j = momoError.response) === null || _j === void 0 ? void 0 : _j.data) === null || _k === void 0 ? void 0 : _k.resultCode,
-                    message: (_m = (_l = momoError.response) === null || _l === void 0 ? void 0 : _l.data) === null || _m === void 0 ? void 0 : _m.message,
-                    subErrors: (_p = (_o = momoError.response) === null || _o === void 0 ? void 0 : _o.data) === null || _p === void 0 ? void 0 : _p.subErrors,
-                    fullResponse: (_q = momoError.response) === null || _q === void 0 ? void 0 : _q.data
+                    status: (_j = momoError.response) === null || _j === void 0 ? void 0 : _j.status,
+                    resultCode: (_l = (_k = momoError.response) === null || _k === void 0 ? void 0 : _k.data) === null || _l === void 0 ? void 0 : _l.resultCode,
+                    message: (_o = (_m = momoError.response) === null || _m === void 0 ? void 0 : _m.data) === null || _o === void 0 ? void 0 : _o.message,
+                    subErrors: (_q = (_p = momoError.response) === null || _p === void 0 ? void 0 : _p.data) === null || _q === void 0 ? void 0 : _q.subErrors,
+                    fullResponse: (_r = momoError.response) === null || _r === void 0 ? void 0 : _r.data
                 });
                 res.status(502).json({
                     error: "Lỗi gọi MoMo API",
-                    momoResultCode: (_s = (_r = momoError.response) === null || _r === void 0 ? void 0 : _r.data) === null || _s === void 0 ? void 0 : _s.resultCode,
-                    momoMessage: (_u = (_t = momoError.response) === null || _t === void 0 ? void 0 : _t.data) === null || _u === void 0 ? void 0 : _u.message,
-                    subErrors: ((_w = (_v = momoError.response) === null || _v === void 0 ? void 0 : _v.data) === null || _w === void 0 ? void 0 : _w.subErrors) || []
+                    momoResultCode: (_t = (_s = momoError.response) === null || _s === void 0 ? void 0 : _s.data) === null || _t === void 0 ? void 0 : _t.resultCode,
+                    momoMessage: (_v = (_u = momoError.response) === null || _u === void 0 ? void 0 : _u.data) === null || _v === void 0 ? void 0 : _v.message,
+                    subErrors: ((_x = (_w = momoError.response) === null || _w === void 0 ? void 0 : _w.data) === null || _x === void 0 ? void 0 : _x.subErrors) || []
                 });
             }
             return;
@@ -198,16 +215,41 @@ exports.createOrder = createOrder;
 MoMo IPN (callback từ MoMo)
 -------------------------------------------*/
 const momoIPN = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const client = yield database_1.default.connect();
     try {
         const { orderId, resultCode } = req.body;
         if (resultCode === 0) {
-            yield database_1.default.query(`UPDATE orders SET status = 'confirmed' WHERE id = $1`, [orderId]);
+            yield client.query('BEGIN');
+            const orderResult = yield client.query(`SELECT * FROM orders WHERE id = $1 FOR UPDATE`, [orderId]);
+            if (orderResult.rows.length > 0) {
+                const order = orderResult.rows[0];
+                if (!order.inventory_deducted) {
+                    yield (0, inventory_service_1.applyInventoryChange)(client, {
+                        productId: Number(order.product_id),
+                        quantityDelta: -Number(order.quantity || 1),
+                        changeType: 'sale',
+                        reason: 'Trừ kho từ MoMo IPN',
+                        referenceType: 'order',
+                        referenceId: String(order.id),
+                        actorUserId: null
+                    });
+                    yield client.query(`UPDATE orders
+                         SET inventory_deducted = TRUE
+                         WHERE id = $1`, [orderId]);
+                }
+                yield client.query(`UPDATE orders SET status = 'confirmed' WHERE id = $1`, [orderId]);
+            }
+            yield client.query('COMMIT');
         }
         res.json({ message: "OK" });
     }
     catch (error) {
+        yield client.query('ROLLBACK');
         console.error("Lỗi xử lý MoMo IPN:", error);
         res.status(500).json({ error: "IPN error" });
+    }
+    finally {
+        client.release();
     }
 });
 exports.momoIPN = momoIPN;
@@ -320,6 +362,7 @@ exports.getRevenueSummary = getRevenueSummary;
   Update order status
 -------------------------------------------*/
 const updateOrderStatus = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const client = yield database_1.default.connect();
     try {
         const { id } = req.params;
         const { status } = req.body;
@@ -328,42 +371,77 @@ const updateOrderStatus = (req, res) => __awaiter(void 0, void 0, void 0, functi
             res.status(400).json({ error: "Trạng thái không hợp lệ" });
             return;
         }
-        // 🔥 LẤY FULL ORDER (thêm quantity + product_id + status)
-        const orderResult = yield database_1.default.query(`SELECT * FROM orders WHERE id = $1`, [id]);
+        yield client.query('BEGIN');
+        const orderResult = yield client.query(`SELECT * FROM orders WHERE id = $1 FOR UPDATE`, [id]);
         if (orderResult.rows.length === 0) {
+            yield client.query('ROLLBACK');
             res.status(404).json({ error: "Không tìm thấy đơn hàng" });
             return;
         }
         const order = orderResult.rows[0];
-        // 🚨 TRÁNH CỘNG LẠI
-        if (order.status === "completed") {
-            res.json({ message: "Đơn đã hoàn tất trước đó" });
+        const currentStatus = String(order.status || 'pending');
+        if (currentStatus === status) {
+            yield client.query('ROLLBACK');
+            res.json({ message: 'Trạng thái không thay đổi', order });
             return;
         }
-        // 🚀 CỘNG SOLD KHI HOÀN TẤT
-        if (status === "completed") {
-            yield database_1.default.query(`UPDATE products 
+        const shouldDeductStock = STOCK_DEDUCT_STATUSES.has(status) && !Boolean(order.inventory_deducted);
+        const shouldRestoreStock = status === 'cancelled' && Boolean(order.inventory_deducted);
+        if (shouldDeductStock) {
+            yield (0, inventory_service_1.applyInventoryChange)(client, {
+                productId: Number(order.product_id),
+                quantityDelta: -Number(order.quantity || 1),
+                changeType: 'sale',
+                reason: `Trừ kho theo đơn ${order.id}`,
+                referenceType: 'order',
+                referenceId: String(order.id),
+                actorUserId: null
+            });
+        }
+        if (shouldRestoreStock) {
+            yield (0, inventory_service_1.applyInventoryChange)(client, {
+                productId: Number(order.product_id),
+                quantityDelta: Number(order.quantity || 1),
+                changeType: 'cancel_restore',
+                reason: `Hoàn kho do hủy đơn ${order.id}`,
+                referenceType: 'order',
+                referenceId: String(order.id),
+                actorUserId: null
+            });
+        }
+        if (status === "completed" && currentStatus !== 'completed') {
+            yield client.query(`UPDATE products 
                  SET sold = sold + $1 
                  WHERE id = $2`, [order.quantity, order.product_id]);
         }
-        // ✅ UPDATE STATUS
-        yield database_1.default.query(`UPDATE orders SET status = $1 WHERE id = $2`, [status, id]);
-        // 🔔 NOTIFICATION (giữ nguyên của bạn)
-        yield database_1.default.query(`INSERT INTO notifications (user_email, title, message, is_read)
+        yield client.query(`UPDATE orders
+             SET status = $1,
+                 inventory_deducted = CASE
+                    WHEN $2 THEN FALSE
+                    WHEN $3 THEN TRUE
+                    ELSE inventory_deducted
+                 END
+             WHERE id = $4`, [status, status === 'cancelled', shouldDeductStock, id]);
+        yield client.query(`INSERT INTO notifications (user_email, title, message, is_read)
              VALUES ($1, $2, $3, FALSE)`, [
             order.email,
             `Cập nhật đơn hàng: ${order.product_title}`,
             `Đơn hàng của bạn đã được cập nhật sang trạng thái: ${status}`
         ]);
+        yield client.query('COMMIT');
         res.json({
             success: true,
             message: "Cập nhật trạng thái thành công",
-            order: Object.assign(Object.assign({}, order), { status })
+            order: Object.assign(Object.assign({}, order), { status, inventory_deducted: status === 'cancelled' ? false : (shouldDeductStock ? true : Boolean(order.inventory_deducted)) })
         });
     }
     catch (error) {
+        yield client.query('ROLLBACK');
         console.error("Lỗi khi cập nhật trạng thái đơn hàng:", error);
-        res.status(500).json({ error: "Lỗi server" });
+        res.status(400).json({ error: error instanceof Error ? error.message : "Lỗi server" });
+    }
+    finally {
+        client.release();
     }
 });
 exports.updateOrderStatus = updateOrderStatus;

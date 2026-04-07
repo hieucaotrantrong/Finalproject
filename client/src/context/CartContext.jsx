@@ -14,6 +14,10 @@ export const CartProvider = ({ children }) => {
     const [cartItems, setCartItems] = useState([]);
     const [isCartOpen, setIsCartOpen] = useState(false);
     const isOutOfStock = (value) => value === true || value === 1 || value === '1' || value === 'true';
+    const hasNoStock = (value) => {
+        const qty = Number(value);
+        return Number.isFinite(qty) && qty <= 0;
+    };
 
     // Load cart từ localStorage khi khởi tạo
     useEffect(() => {
@@ -29,13 +33,14 @@ export const CartProvider = ({ children }) => {
     }, [cartItems]);
 
     const addToCart = (product) => {
-        if (isOutOfStock(product?.is_out_of_stock)) {
+        if (isOutOfStock(product?.is_out_of_stock) || hasNoStock(product?.stock_quantity)) {
             return;
         }
 
         const normalizedProduct = {
             ...product,
-            is_out_of_stock: isOutOfStock(product?.is_out_of_stock)
+            is_out_of_stock: isOutOfStock(product?.is_out_of_stock),
+            stock_quantity: Number(product?.stock_quantity)
         };
 
         setCartItems(prevItems => {

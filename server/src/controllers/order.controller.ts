@@ -4,6 +4,9 @@ import jwt from "jsonwebtoken";
 import axios from "axios";
 import crypto from "crypto";
 import { randomUUID } from "crypto";
+import { applyInventoryChange } from '../services/inventory.service';
+
+const STOCK_DEDUCT_STATUSES = new Set(['confirmed', 'shipping', 'completed']);
 
 const getAdminEmails = async (): Promise<string[]> => {
     try {
@@ -77,7 +80,15 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
         }
 
         const productCheck = await pool.query(
-            `SELECT id, title, is_out_of_stock FROM products WHERE id = $1 LIMIT 1`,
+            `SELECT
+                p.id,
+                p.title,
+                p.is_out_of_stock,
+                COALESCE(inv.quantity, 0)::int AS stock_quantity
+             FROM products p
+             LEFT JOIN product_inventory inv ON inv.product_id = p.id
+             WHERE p.id = $1
+             LIMIT 1`,
             [productId]
         );
 
@@ -88,6 +99,14 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
 
         if (Boolean(productCheck.rows[0]?.is_out_of_stock)) {
             res.status(400).json({ error: 'Sản phẩm đã hết hàng, không thể đặt mua' });
+            return;
+        }
+
+        const availableStock = Number(productCheck.rows[0]?.stock_quantity || 0);
+        if (availableStock < normalizedQuantity) {
+            res.status(400).json({
+                error: `Sản phẩm không đủ tồn kho. Hiện còn ${availableStock}, yêu cầu ${normalizedQuantity}`
+            });
             return;
         }
 
@@ -261,20 +280,57 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
 MoMo IPN (callback từ MoMo)
 -------------------------------------------*/
 export const momoIPN = async (req: Request, res: Response): Promise<void> => {
+    const client = await pool.connect();
+
     try {
         const { orderId, resultCode } = req.body;
 
         if (resultCode === 0) {
-            await pool.query(
-                `UPDATE orders SET status = 'confirmed' WHERE id = $1`,
+            await client.query('BEGIN');
+
+            const orderResult = await client.query(
+                `SELECT * FROM orders WHERE id = $1 FOR UPDATE`,
                 [orderId]
             );
+
+            if (orderResult.rows.length > 0) {
+                const order = orderResult.rows[0];
+
+                if (!order.inventory_deducted) {
+                    await applyInventoryChange(client, {
+                        productId: Number(order.product_id),
+                        quantityDelta: -Number(order.quantity || 1),
+                        changeType: 'sale',
+                        reason: 'Trừ kho từ MoMo IPN',
+                        referenceType: 'order',
+                        referenceId: String(order.id),
+                        actorUserId: null
+                    });
+
+                    await client.query(
+                        `UPDATE orders
+                         SET inventory_deducted = TRUE
+                         WHERE id = $1`,
+                        [orderId]
+                    );
+                }
+
+                await client.query(
+                    `UPDATE orders SET status = 'confirmed' WHERE id = $1`,
+                    [orderId]
+                );
+            }
+
+            await client.query('COMMIT');
         }
 
         res.json({ message: "OK" });
     } catch (error) {
+        await client.query('ROLLBACK');
         console.error("Lỗi xử lý MoMo IPN:", error);
         res.status(500).json({ error: "IPN error" });
+    } finally {
+        client.release();
     }
 };
 /*-----------------------------------------
@@ -398,6 +454,8 @@ export const getRevenueSummary = async (req: Request, res: Response): Promise<vo
   Update order status  
 -------------------------------------------*/
 export const updateOrderStatus = async (req: Request, res: Response): Promise<void> => {
+    const client = await pool.connect();
+
     try {
         const { id } = req.params;
         const { status } = req.body;
@@ -408,28 +466,57 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
             return;
         }
 
-        // 🔥 LẤY FULL ORDER (thêm quantity + product_id + status)
-        const orderResult = await pool.query(
-            `SELECT * FROM orders WHERE id = $1`,
+        await client.query('BEGIN');
+
+        const orderResult = await client.query(
+            `SELECT * FROM orders WHERE id = $1 FOR UPDATE`,
             [id]
         );
 
         if (orderResult.rows.length === 0) {
+            await client.query('ROLLBACK');
             res.status(404).json({ error: "Không tìm thấy đơn hàng" });
             return;
         }
 
         const order = orderResult.rows[0];
+        const currentStatus = String(order.status || 'pending');
 
-        // 🚨 TRÁNH CỘNG LẠI
-        if (order.status === "completed") {
-            res.json({ message: "Đơn đã hoàn tất trước đó" });
+        if (currentStatus === status) {
+            await client.query('ROLLBACK');
+            res.json({ message: 'Trạng thái không thay đổi', order });
             return;
         }
 
-        // 🚀 CỘNG SOLD KHI HOÀN TẤT
-        if (status === "completed") {
-            await pool.query(
+        const shouldDeductStock = STOCK_DEDUCT_STATUSES.has(status) && !Boolean(order.inventory_deducted);
+        const shouldRestoreStock = status === 'cancelled' && Boolean(order.inventory_deducted);
+
+        if (shouldDeductStock) {
+            await applyInventoryChange(client, {
+                productId: Number(order.product_id),
+                quantityDelta: -Number(order.quantity || 1),
+                changeType: 'sale',
+                reason: `Trừ kho theo đơn ${order.id}`,
+                referenceType: 'order',
+                referenceId: String(order.id),
+                actorUserId: null
+            });
+        }
+
+        if (shouldRestoreStock) {
+            await applyInventoryChange(client, {
+                productId: Number(order.product_id),
+                quantityDelta: Number(order.quantity || 1),
+                changeType: 'cancel_restore',
+                reason: `Hoàn kho do hủy đơn ${order.id}`,
+                referenceType: 'order',
+                referenceId: String(order.id),
+                actorUserId: null
+            });
+        }
+
+        if (status === "completed" && currentStatus !== 'completed') {
+            await client.query(
                 `UPDATE products 
                  SET sold = sold + $1 
                  WHERE id = $2`,
@@ -437,14 +524,19 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
             );
         }
 
-        // ✅ UPDATE STATUS
-        await pool.query(
-            `UPDATE orders SET status = $1 WHERE id = $2`,
-            [status, id]
+        await client.query(
+            `UPDATE orders
+             SET status = $1,
+                 inventory_deducted = CASE
+                    WHEN $2 THEN FALSE
+                    WHEN $3 THEN TRUE
+                    ELSE inventory_deducted
+                 END
+             WHERE id = $4`,
+            [status, status === 'cancelled', shouldDeductStock, id]
         );
 
-        // 🔔 NOTIFICATION (giữ nguyên của bạn)
-        await pool.query(
+        await client.query(
             `INSERT INTO notifications (user_email, title, message, is_read)
              VALUES ($1, $2, $3, FALSE)`,
             [
@@ -454,15 +546,24 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
             ]
         );
 
+        await client.query('COMMIT');
+
         res.json({
             success: true,
             message: "Cập nhật trạng thái thành công",
-            order: { ...order, status }
+            order: {
+                ...order,
+                status,
+                inventory_deducted: status === 'cancelled' ? false : (shouldDeductStock ? true : Boolean(order.inventory_deducted))
+            }
         });
 
     } catch (error) {
+        await client.query('ROLLBACK');
         console.error("Lỗi khi cập nhật trạng thái đơn hàng:", error);
-        res.status(500).json({ error: "Lỗi server" });
+        res.status(400).json({ error: error instanceof Error ? error.message : "Lỗi server" });
+    } finally {
+        client.release();
     }
 };
 

@@ -14,7 +14,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateProductStockStatus = exports.deleteProduct = exports.updateProduct = exports.createProduct = exports.getProductById = exports.getAllProducts = void 0;
 const database_1 = __importDefault(require("../config/database"));
-const toProductResponse = (product) => (Object.assign(Object.assign({}, product), { is_out_of_stock: Boolean(product === null || product === void 0 ? void 0 : product.is_out_of_stock) }));
+const inventory_service_1 = require("../services/inventory.service");
+const toProductResponse = (product) => (Object.assign(Object.assign({}, product), { is_out_of_stock: Boolean(product === null || product === void 0 ? void 0 : product.is_out_of_stock), stock_quantity: Number((product === null || product === void 0 ? void 0 : product.stock_quantity) || 0) }));
 /*----------------------------------
 Get all products
 -----------------------------------*/
@@ -23,9 +24,11 @@ const getAllProducts = (req, res) => __awaiter(void 0, void 0, void 0, function*
         const result = yield database_1.default.query(`
             SELECT
                 p.*,
+                COALESCE(inv.quantity, 0)::int AS stock_quantity,
                 COALESCE(r.avg_rating, 0) AS average_rating,
                 COALESCE(r.review_count, 0) AS review_count
             FROM products p
+            LEFT JOIN product_inventory inv ON inv.product_id = p.id
             LEFT JOIN (
                 SELECT
                     product_id,
@@ -52,9 +55,11 @@ const getProductById = (req, res) => __awaiter(void 0, void 0, void 0, function*
         // 1. product
         const result = yield database_1.default.query(`SELECT
                 p.*,
+                COALESCE(inv.quantity, 0)::int AS stock_quantity,
                 COALESCE(r.avg_rating, 0) AS average_rating,
                 COALESCE(r.review_count, 0) AS review_count
              FROM products p
+             LEFT JOIN product_inventory inv ON inv.product_id = p.id
              LEFT JOIN (
                 SELECT
                     product_id,
@@ -96,6 +101,9 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
              RETURNING *`, [title, originalprice, price, discount, tag, image, category, Boolean(is_out_of_stock)]);
         const newProduct = result.rows[0];
+        // Ensure each product always has an inventory row, default quantity = 0.
+        yield (0, inventory_service_1.ensureInventoryRow)(client, Number(newProduct.id));
+        newProduct.stock_quantity = 0;
         // 2. insert images
         if (Array.isArray(images)) {
             for (const img of images) {

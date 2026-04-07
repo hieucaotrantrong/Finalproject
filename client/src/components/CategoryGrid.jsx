@@ -7,32 +7,57 @@ export default function CategoryGrid() {
     const [activeTab, setActiveTab] = useState('all');
     const [showAll, setShowAll] = useState(false);
 
-    useEffect(() => {
-
+    const fetchProducts = () => {
         fetch("http://localhost:5000/api/products")
             .then(res => res.json())
             .then(data => {
-
-                const randomProducts = [...data].sort(() => Math.random() - 0.5);
-                setProducts(randomProducts);
-
+                setProducts(Array.isArray(data) ? data : []);
             })
             .catch(err => console.log(err));
+    };
 
+    useEffect(() => {
+        fetchProducts();
+
+        const intervalId = setInterval(() => {
+            fetchProducts();
+        }, 1000);
+
+        return () => clearInterval(intervalId);
     }, []);
 
+    const normalizeCategory = (value = '') => {
+        return String(value)
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .trim();
+    };
+
     const tabs = [
-        { name: 'Tất Cả', value: 'all' },
-        { name: 'Điện thoại', value: 'phone' },
+        { name: 'Tất Cả', value: 'tat-ca' },
+        { name: 'Điện thoại', value: 'dien-thoai' },
         { name: 'Laptop', value: 'laptop' },
-        { name: 'Phụ Kiện', value: 'accessory' },
-        { name: 'Đồng Hồ', value: 'watch' },
-        { name: 'Smartwatch', value: 'smartwatch' },
+        { name: 'Phụ Kiện', value: 'phu-kien' },
+        { name: 'Đồng Hồ', value: 'dong-ho' },
+        { name: 'Smartwatch', value: 'dong-ho-thong-minh' },
     ];
 
-    const filteredProducts = activeTab === 'all'
+    const categoryMap = {
+        'dien-thoai': ['phone', 'dien-thoai', 'dien thoai', 'điện thoại'],
+        laptop: ['laptop'],
+        'phu-kien': ['accessory', 'phu-kien', 'phu kien', 'phụ kiện'],
+        'dong-ho': ['watch', 'dong-ho', 'dong ho', 'đồng hồ'],
+        'dong-ho-thong-minh': ['smartwatch', 'dong-ho-thong-minh', 'dong ho thong minh']
+    };
+
+    const filteredProducts = activeTab === 'tat-ca'
         ? products
-        : products.filter((product) => product.category === activeTab);
+        : products.filter((product) => {
+            const normalizedProductCategory = normalizeCategory(product.category);
+            const acceptedCategories = (categoryMap[activeTab] || []).map((item) => normalizeCategory(item));
+            return acceptedCategories.includes(normalizedProductCategory);
+        });
 
     const firstProducts = filteredProducts.slice(0, 6);
     const moreProducts = filteredProducts.slice(6);
@@ -124,6 +149,7 @@ export default function CategoryGrid() {
             sold={product.sold} // Đừng quên truyền sold nếu CartItem cần nhé
             rating={product.average_rating ?? product.rating ?? 0}
             is_out_of_stock={product.is_out_of_stock}
+            stock_quantity={product.stock_quantity}
         />
     ))}
 </div>
@@ -145,6 +171,7 @@ export default function CategoryGrid() {
                                 sold={product.sold}
                                 rating={product.average_rating ?? product.rating ?? 0}
                                 is_out_of_stock={product.is_out_of_stock}
+                                stock_quantity={product.stock_quantity}
                             />
                         ))}
 

@@ -275,6 +275,14 @@ const OrderHistory = () => {
                                                         Hủy đơn
                                                     </button>
                                                 )}
+                                                {order.status === 'completed' && (
+                                                    <Link
+                                                        to={`/product/${order.product_id}#reviews`}
+                                                        className="px-4 py-1.5 bg-white text-blue-700 border border-blue-300 rounded text-sm hover:bg-blue-50 shadow-sm"
+                                                    >
+                                                        Đánh giá sản phẩm
+                                                    </Link>
+                                                )}
                                                 {activeTab === 'all' && ['completed', 'cancelled'].includes(order.status) && (
                                                     <button
                                                         onClick={() => handleDeleteOrder(order.id)}

@@ -7,16 +7,23 @@ export default function MallSection() {
     const [products, setProducts] = useState([]);
     const [currentIndex, setCurrentIndex] = useState(0);
 
-    useEffect(() => {
+    const fetchProducts = () => {
         fetch("http://localhost:5000/api/products")
             .then(res => res.json())
             .then(data => {
-
-                const shuffled = [...data].sort(() => 0.5 - Math.random());
-                setProducts(shuffled);
-
+                setProducts(Array.isArray(data) ? data : []);
             })
             .catch(err => console.log(err));
+    };
+
+    useEffect(() => {
+        fetchProducts();
+
+        const intervalId = setInterval(() => {
+            fetchProducts();
+        }, 1000);
+
+        return () => clearInterval(intervalId);
     }, []);
 
     const visibleProducts = products.slice(currentIndex, currentIndex + 4);

@@ -1,9 +1,11 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
+import { ensureInventoryRow } from '../services/inventory.service';
 
 const toProductResponse = (product: any) => ({
     ...product,
-    is_out_of_stock: Boolean(product?.is_out_of_stock)
+    is_out_of_stock: Boolean(product?.is_out_of_stock),
+    stock_quantity: Number(product?.stock_quantity || 0)
 });
 
 /*----------------------------------
@@ -14,9 +16,11 @@ export const getAllProducts = async (req: Request, res: Response): Promise<void>
         const result = await pool.query(`
             SELECT
                 p.*,
+                COALESCE(inv.quantity, 0)::int AS stock_quantity,
                 COALESCE(r.avg_rating, 0) AS average_rating,
                 COALESCE(r.review_count, 0) AS review_count
             FROM products p
+            LEFT JOIN product_inventory inv ON inv.product_id = p.id
             LEFT JOIN (
                 SELECT
                     product_id,
@@ -44,9 +48,11 @@ export const getProductById = async (req: Request, res: Response): Promise<void>
         const result = await pool.query(
             `SELECT
                 p.*,
+                COALESCE(inv.quantity, 0)::int AS stock_quantity,
                 COALESCE(r.avg_rating, 0) AS average_rating,
                 COALESCE(r.review_count, 0) AS review_count
              FROM products p
+             LEFT JOIN product_inventory inv ON inv.product_id = p.id
              LEFT JOIN (
                 SELECT
                     product_id,
@@ -121,6 +127,10 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
         );
 
         const newProduct = result.rows[0];
+
+        // Ensure each product always has an inventory row, default quantity = 0.
+        await ensureInventoryRow(client, Number(newProduct.id));
+        newProduct.stock_quantity = 0;
 
         // 2. insert images
         if (Array.isArray(images)) {

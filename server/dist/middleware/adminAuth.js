@@ -14,8 +14,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.adminAuth = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const database_1 = __importDefault(require("../config/database"));
 const adminAuth = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
+    var _a, _b;
     try {
         const token = (_a = req.headers.authorization) === null || _a === void 0 ? void 0 : _a.split(' ')[1];
         if (!token) {
@@ -27,8 +28,10 @@ const adminAuth = (req, res, next) => __awaiter(void 0, void 0, void 0, function
             res.status(403).json({ error: 'Token không hợp lệ' });
             return;
         }
-        // 🔒 Kiểm tra role = 'admin'
-        if (decoded.role !== 'admin') {
+        const userResult = yield database_1.default.query('SELECT role FROM users WHERE id = $1 LIMIT 1', [decoded.userId]);
+        const userRole = (_b = userResult.rows[0]) === null || _b === void 0 ? void 0 : _b.role;
+        // 🔒 Kiểm tra quyền admin từ dữ liệu user thật trong DB
+        if (userRole !== 'admin') {
             res.status(403).json({ error: 'Bạn không có quyền truy cập admin' });
             return;
         }

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import axios from "axios";
 import Home from "./Home";
 import Footers from "./Footers";
@@ -38,8 +38,15 @@ const getImageSrc = (image) => {
     return "";
 };
 
+const isProductOutOfStock = (item) => {
+    const qty = Number(item?.stock_quantity);
+    const hasQty = Number.isFinite(qty);
+    return Boolean(item?.is_out_of_stock) || (hasQty && qty <= 0);
+};
+
 const ProductDetail = () => {
     const { id } = useParams();
+    const location = useLocation();
     const [product, setProduct] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -167,12 +174,31 @@ const ProductDetail = () => {
         };
 
         fetchProduct();
+
+        const intervalId = setInterval(() => {
+            fetchProduct();
+        }, 1000);
+
+        return () => clearInterval(intervalId);
     }, [id]);
     useEffect(() => {
         if (!product) return;
         fetchReviews(product.id);
         checkCanReview(product.id);
     }, [product, fetchReviews, checkCanReview]);
+
+    useEffect(() => {
+        if (location.hash !== "#reviews") return;
+
+        const timer = setTimeout(() => {
+            const reviewSection = document.getElementById("product-reviews");
+            if (reviewSection) {
+                reviewSection.scrollIntoView({ behavior: "smooth", block: "start" });
+            }
+        }, 250);
+
+        return () => clearTimeout(timer);
+    }, [location.hash, product]);
 
     useEffect(() => {
         const fetchAccessoryProducts = async () => {
@@ -230,7 +256,7 @@ const ProductDetail = () => {
 
     const handleAddToCart = () => {
         if (product) {
-            if (Boolean(product.is_out_of_stock)) {
+            if (isProductOutOfStock(product)) {
                 alert("Sản phẩm hiện đang hết hàng");
                 return;
             }
@@ -402,14 +428,14 @@ const ProductDetail = () => {
 
                                 <button
                                     onClick={handleAddToCart}
-                                    disabled={Boolean(product.is_out_of_stock)}
+                                    disabled={isProductOutOfStock(product)}
                                     className={`mt-4 sm:mt-0 font-medium rounded-lg text-sm px-5 py-2.5 flex items-center justify-center ${
-                                        Boolean(product.is_out_of_stock)
+                                        isProductOutOfStock(product)
                                             ? "bg-gray-300 text-gray-600 cursor-not-allowed"
                                             : "text-white bg-[#ffd400] hover:bg-yellow-500 focus:ring-4 focus:ring-yellow-300"
                                     }`}
                                 >
-                                    {Boolean(product.is_out_of_stock) ? "Hết hàng" : "Thêm vào giỏ"}
+                                    {isProductOutOfStock(product) ? "Hết hàng" : "Thêm vào giỏ"}
                                 </button>
                             </div>
 
@@ -480,7 +506,7 @@ const ProductDetail = () => {
 </section>
 
 {/* ================= REVIEW ================= */}
-<div className="max-w-screen-xl mx-auto px-4 mt-10 bg-white p-6 rounded">
+<div id="product-reviews" className="max-w-screen-xl mx-auto px-4 mt-10 bg-white p-6 rounded">
     <h2 className="text-xl font-semibold mb-4">Đánh giá sản phẩm</h2>
 
     {/* FORM */}
@@ -513,7 +539,7 @@ const ProductDetail = () => {
 
             <button
                 onClick={handleSubmitReview}
-                className="bg-red-500 text-white px-4 py-2 rounded"
+                className="px-4 py-1.5 bg-white text-red-700 border border-blue-300 rounded text-sm hover:bg-blue-50 shadow-sm"
             >
                 Gửi đánh giá
             </button>

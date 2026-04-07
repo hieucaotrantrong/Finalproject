@@ -19,13 +19,20 @@ const formatRating = (num) => {
     return parsed.toFixed(1);
 };
 
+const isProductOutOfStock = (isOutOfStock, stockQuantity) => {
+    const qty = Number(stockQuantity);
+    const isQtyValid = Number.isFinite(qty);
+    return Boolean(isOutOfStock) || (isQtyValid && qty <= 0);
+};
+
 // 🔥 thêm sold vào props
-const CartItem = ({ id, image, title, originalprice, price, discount, sold, rating, average_rating, is_out_of_stock }) => {
+const CartItem = ({ id, image, title, originalprice, price, discount, sold, rating, average_rating, is_out_of_stock, stock_quantity }) => {
     const navigate = useNavigate();
     const displayRating = rating ?? average_rating;
+    const productOutOfStock = isProductOutOfStock(is_out_of_stock, stock_quantity);
 
     const handleBuyNow = () => {
-        if (Boolean(is_out_of_stock)) {
+        if (productOutOfStock) {
             alert("Sản phẩm hiện đang hết hàng");
             return;
         }
@@ -109,14 +116,14 @@ const CartItem = ({ id, image, title, originalprice, price, discount, sold, rati
 
                     <button
                         onClick={handleBuyNow}
-                        disabled={Boolean(is_out_of_stock)}
+                        disabled={productOutOfStock}
                         className={`px-2 py-1 text-xs rounded transition whitespace-nowrap ${
-                            Boolean(is_out_of_stock)
+                            productOutOfStock
                                 ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
                                 : 'bg-red-500 hover:bg-red-600 text-white'
                         }`}
                     >
-                        {Boolean(is_out_of_stock) ? 'Hết hàng' : 'Mua Ngay'}
+                        {productOutOfStock ? 'Hết hàng' : 'Mua Ngay'}
                     </button>
                 </div>
             </div>

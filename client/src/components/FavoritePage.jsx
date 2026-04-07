@@ -11,6 +11,14 @@ const SIDE_PREFIX = "side::";
 const isSideBanner = (imageUrl = "") => imageUrl.startsWith(SIDE_PREFIX);
 const toDisplayImageUrl = (imageUrl = "") => imageUrl.replace(SIDE_PREFIX, "");
 const normalizeOutOfStock = (value) => value === true || value === 1 || value === "1" || value === "true";
+const normalizeStockQuantity = (value) => {
+    const qty = Number(value);
+    return Number.isFinite(qty) ? qty : null;
+};
+const isProductOutOfStock = (product) => {
+    const qty = normalizeStockQuantity(product?.stock_quantity);
+    return normalizeOutOfStock(product?.is_out_of_stock) || (qty !== null && qty <= 0);
+};
 
 const FavoritePage = () => {
     const [favorites, setFavorites] = useState([]);
@@ -18,41 +26,43 @@ const FavoritePage = () => {
     const { addToCart } = useCart();
     const carouselRef = useRef(null);
 
-    useEffect(() => {
+    const syncFavorites = async () => {
         const rawFavorites = JSON.parse(localStorage.getItem("favorites")) || [];
         const safeFavorites = Array.isArray(rawFavorites) ? rawFavorites : [];
 
-        const syncFavorites = async () => {
-            try {
-                const response = await fetch("http://localhost:5000/api/products");
-                const allProducts = await response.json();
-                const productMap = new Map(
-                    (Array.isArray(allProducts) ? allProducts : []).map((product) => [product.id, product])
-                );
+        try {
+            const response = await fetch("http://localhost:5000/api/products");
+            const allProducts = await response.json();
+            const productMap = new Map(
+                (Array.isArray(allProducts) ? allProducts : []).map((product) => [product.id, product])
+            );
 
-                const mergedFavorites = safeFavorites.map((item) => {
-                    const latest = productMap.get(item.id);
-                    const merged = latest ? { ...item, ...latest } : { ...item };
+            const mergedFavorites = safeFavorites.map((item) => {
+                const latest = productMap.get(item.id);
+                const merged = latest ? { ...item, ...latest } : { ...item };
 
-                    return {
-                        ...merged,
-                        is_out_of_stock: normalizeOutOfStock(merged.is_out_of_stock)
-                    };
-                });
+                return {
+                    ...merged,
+                    is_out_of_stock: normalizeOutOfStock(merged.is_out_of_stock),
+                    stock_quantity: normalizeStockQuantity(merged.stock_quantity)
+                };
+            });
 
-                setFavorites(mergedFavorites);
-                localStorage.setItem("favorites", JSON.stringify(mergedFavorites));
-            } catch (error) {
-                const normalizedFavorites = safeFavorites.map((item) => ({
-                    ...item,
-                    is_out_of_stock: normalizeOutOfStock(item.is_out_of_stock)
-                }));
+            setFavorites(mergedFavorites);
+            localStorage.setItem("favorites", JSON.stringify(mergedFavorites));
+        } catch (error) {
+            const normalizedFavorites = safeFavorites.map((item) => ({
+                ...item,
+                is_out_of_stock: normalizeOutOfStock(item.is_out_of_stock),
+                stock_quantity: normalizeStockQuantity(item.stock_quantity)
+            }));
 
-                setFavorites(normalizedFavorites);
-                localStorage.setItem("favorites", JSON.stringify(normalizedFavorites));
-            }
-        };
+            setFavorites(normalizedFavorites);
+            localStorage.setItem("favorites", JSON.stringify(normalizedFavorites));
+        }
+    };
 
+    useEffect(() => {
         syncFavorites();
     }, []);
 
@@ -97,10 +107,11 @@ const FavoritePage = () => {
     const handleAddToCart = (product) => {
         const normalizedProduct = {
             ...product,
-            is_out_of_stock: normalizeOutOfStock(product?.is_out_of_stock)
+            is_out_of_stock: normalizeOutOfStock(product?.is_out_of_stock),
+            stock_quantity: normalizeStockQuantity(product?.stock_quantity)
         };
 
-        if (normalizedProduct.is_out_of_stock) {
+        if (isProductOutOfStock(normalizedProduct)) {
             alert(`Sản phẩm "${product.title}" hiện đang hết hàng.`);
             return;
         }
@@ -179,6 +190,7 @@ const FavoritePage = () => {
                                             {...item}
                                             sold={item.sold}
                                             is_out_of_stock={normalizeOutOfStock(item.is_out_of_stock)}
+                                            stock_quantity={normalizeStockQuantity(item.stock_quantity)}
                                         />
                                         
                                         {/* Remove button overlay */}

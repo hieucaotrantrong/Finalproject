@@ -9,6 +9,7 @@ import Footers from '../components/Footers';
 import AdminUsers from './AdminUsers';
 import AdminBanner from './AdminBanner';
 import Notifications from '../components/Notifications';
+import InventoryManagement from './InventoryManagement';
 
 const SIDE_PREFIX = 'side::';
 const TOP_PREFIX = 'top::';
@@ -82,6 +83,7 @@ const [specs, setSpecs] = useState([
 
     const adminTabs = [
         { key: 'products', label: 'Quản lý sản phẩm' },
+        { key: 'inventory', label: 'Quản lý kho' },
         { key: 'orders', label: 'Quản lý đơn hàng' },
         { key: 'revenue', label: 'Quản lý doanh thu'},
         { key: 'support', label: 'Quản lý hỗ trợ',  },
@@ -684,6 +686,8 @@ setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
                 </>
             ) : activeTab === 'orders' ? (
                 <OrderManagement />
+            ) : activeTab === 'inventory' ? (
+                <InventoryManagement />
             ) : activeTab === 'revenue' ? (
                 <RevenueManagement />
             ) : activeTab === 'users' ? (
