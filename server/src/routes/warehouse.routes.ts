@@ -5,7 +5,7 @@ import {
     getInventorySummary,
     getInventoryTransactions,
     importInventory
-} from '../controllers/inventory.controller';
+} from '../controllers/warehouse.controller';
 
 const router = Router();
 

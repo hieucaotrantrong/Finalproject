@@ -19,7 +19,7 @@ const bannerRouter_1 = __importDefault(require("./routes/bannerRouter"));
 const password_routes_1 = __importDefault(require("./routes/password.routes"));
 const reviewRoutes_1 = __importDefault(require("./routes/reviewRoutes"));
 const shipping_1 = __importDefault(require("./routes/shipping"));
-const inventory_routes_1 = __importDefault(require("./routes/inventory.routes"));
+const warehouse_routes_1 = __importDefault(require("./routes/warehouse.routes"));
 /*------------------------------------
 Dotnev
 --------------------------------------*/
@@ -47,7 +47,7 @@ app.use('/api/banners', bannerRouter_1.default);
 app.use("/api/password", password_routes_1.default);
 app.use('/api/reviews', reviewRoutes_1.default);
 app.use('/api/shipping', shipping_1.default);
-app.use('/api/inventory', inventory_routes_1.default);
+app.use('/api/inventory', warehouse_routes_1.default);
 /*------------------------------------
 Start Servers
 --------------------------------------*/

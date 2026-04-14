@@ -52,7 +52,7 @@ const toOperatorLabel = (item) => {
     return item?.created_by_email || 'Hệ thống';
 };
 
-const InventoryManagement = () => {
+const WarehouseManagement = () => {
     const [inventory, setInventory] = useState([]);
     const [transactions, setTransactions] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -373,4 +373,4 @@ const InventoryManagement = () => {
     );
 };
 
-export default InventoryManagement;
+export default WarehouseManagement;

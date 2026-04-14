@@ -14,7 +14,7 @@ import bannerRouter from './routes/bannerRouter';
 import passwordRouter from "./routes/password.routes";
 import reviewRoutes from "./routes/reviewRoutes";
 import shippingRoutes from './routes/shipping';
-import inventoryRoutes from './routes/inventory.routes';
+import warehouseRoutes from './routes/warehouse.routes';
 /*------------------------------------
 Dotnev
 --------------------------------------*/
@@ -45,7 +45,7 @@ app.use('/api/banners', bannerRouter);
 app.use("/api/password", passwordRouter);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/shipping', shippingRoutes);
-app.use('/api/inventory', inventoryRoutes);
+app.use('/api/inventory', warehouseRoutes);
 /*------------------------------------
 Start Servers
 --------------------------------------*/

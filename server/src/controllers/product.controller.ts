@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
-import { ensureInventoryRow } from '../services/inventory.service';
+import { ensureInventoryRow } from '../services/warehouse.service';
 
 const toProductResponse = (product: any) => ({
     ...product,

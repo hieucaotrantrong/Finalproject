@@ -16,6 +16,23 @@ const formatVnd = (value) => {
     return num.toLocaleString('vi-VN');
 };
 
+const getOrderQuantity = (order) => {
+    const qty = Number(order?.quantity ?? 1);
+    return Number.isFinite(qty) && qty > 0 ? qty : 1;
+};
+
+const getOrderShippingFee = (order) => {
+    const fee = Number(order?.shipping_fee ?? order?.shippingFee ?? 0);
+    return Number.isFinite(fee) && fee > 0 ? fee : 0;
+};
+
+const getOrderTotal = (order) => {
+    const unitPrice = Number(order?.product_price ?? 0);
+    const quantity = getOrderQuantity(order);
+    const shippingFee = getOrderShippingFee(order);
+    return (Number.isFinite(unitPrice) ? unitPrice : 0) * quantity + shippingFee;
+};
+
 const resolveOrderImage = (imageUrl = '') => {
     const raw = String(imageUrl || '').trim();
     if (!raw) return '';
@@ -42,9 +59,9 @@ const OrderHistory = () => {
     const [activeTab, setActiveTab] = useState('pending');
     const [sideBanner, setSideBanner] = useState(null);
 
-    // Danh sách các tab chia thành từng ô riêng biệt như ảnh
+ 
     const orderTabs = [
-        { key: 'all', label: 'Tất cả' }, // Thêm option tất cả nếu bạn muốn
+        { key: 'all', label: 'Tất cả' }, 
         { key: 'pending', label: 'Chờ xử lý' },
         { key: 'confirmed', label: 'Đã xác nhận' },
         { key: 'shipping', label: 'Đang giao hàng' },
@@ -53,8 +70,9 @@ const OrderHistory = () => {
     ];
 
     // Logic lọc đơn hàng
-    const filteredOrders = activeTab === 'all' 
-        ? orders 
+   
+    const filteredOrders = activeTab === 'all'
+        ? orders.filter(order => order.status === 'completed')
         : orders.filter(order => order.status === activeTab);
 
     useEffect(() => {
@@ -147,12 +165,12 @@ const OrderHistory = () => {
 
     const getStatusStyle = (status) => {
         const styles = {
-  pending: { text: 'Chờ xác nhận', class: 'bg-yellow-100 text-yellow-600' },
-  confirmed: { text: 'Đã xác nhận', class: 'bg-blue-100 text-blue-600' },
-  shipping: { text: 'Đang giao hàng', class: 'bg-indigo-100 text-indigo-600' },
-  completed: { text: 'Thành công', class: 'bg-green-100 text-green-600' },
-  cancelled: { text: 'Đã hủy', class: 'bg-red-100 text-red-600' },
-};
+            pending: { text: 'Chờ xác nhận' },
+            confirmed: { text: 'Đã xác nhận' },
+            shipping: { text: 'Đang giao hàng'},
+            completed: { text: 'Thành công'},
+            cancelled: { text: 'Đã hủy' },
+        };
         return styles[status] || styles.pending;
     };
 
@@ -224,6 +242,9 @@ const OrderHistory = () => {
                         <div className="divide-y divide-gray-100">
                             {filteredOrders.map((order) => {
                                 const status = getStatusStyle(order.status);
+                                const quantity = getOrderQuantity(order);
+                                const shippingFee = getOrderShippingFee(order);
+                                const totalAmount = getOrderTotal(order);
                                 return (
                                     <div key={order.id} className="p-6 hover:bg-gray-50/50 transition">
                                         <div className="flex justify-between items-start mb-4">
@@ -247,6 +268,9 @@ const OrderHistory = () => {
                                                     <h4 className="font-medium text-gray-800 line-clamp-2 max-w-md">
                                                         {order.product_title}
                                                     </h4>
+                                                    <p className="mt-1 text-sm text-gray-500">
+                                                        {formatVnd(order.product_price)}₫ x {quantity}
+                                                    </p>
                                                     
                                                     <div className="mt-2 text-xs text-gray-400 space-y-0.5">
                                                         <p>Người nhận: {order.full_name}</p>
@@ -255,11 +279,10 @@ const OrderHistory = () => {
                                                 </div>
                                             </div>
                                             <div className="text-right">
-                                                <div className={`flex items-center justify-end gap-1.5 font-medium mb-1 ${status.color}`}>
-                                                    {status.icon}
+                                                <div className={`inline-flex items-center justify-end gap-1.5 font-medium mb-1 px-2 py-1 rounded ${status.class}`}>
                                                     <span className="text-[13px] uppercase tracking-wide">{status.text}</span>
                                                 </div>
-                                                <p className="text-lg font-bold text-red-600">{formatVnd(order.product_price)}₫</p>
+                                                <p className="text-lg font-bold text-red-600">{formatVnd(totalAmount)}₫</p>
                                             </div>
                                         </div>
                                         <div className="flex justify-between items-center mt-4">
@@ -270,7 +293,7 @@ const OrderHistory = () => {
                                                 {order.status === 'pending' && (
                                                     <button
                                                         onClick={() => handleCancelOrder(order.id)}
-                                                        className="px-4 py-1.5 border border-red-500 text-yellow-500 rounded text-sm "
+                                                        className="px-4 py-1.5 border border-red-500 text-black-500 rounded text-sm "
                                                     >
                                                         Hủy đơn
                                                     </button>

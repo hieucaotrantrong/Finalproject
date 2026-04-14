@@ -101,7 +101,7 @@ const CartItem = ({ id, image, title, originalprice, price, discount, sold, rati
                     Giảm giá {Number(discount)}%
                 </div>
 
-                {/* 🔥 CHỖ ĐÃ SỬA */}
+       
                 <div className="flex items-center text-xs text-gray-600 mb-2">
                     <span className="text-yellow-500">★</span>
                     <span className="ml-1">

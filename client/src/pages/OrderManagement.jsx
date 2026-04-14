@@ -1,6 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
+const formatVnd = (value) => {
+    const num = Number(String(value ?? 0).replace(/[^\d.-]/g, ''));
+    if (!Number.isFinite(num)) return '0';
+    return num.toLocaleString('vi-VN');
+};
+
+const getOrderQuantity = (order) => {
+    const qty = Number(order?.quantity ?? 1);
+    return Number.isFinite(qty) && qty > 0 ? qty : 1;
+};
+
+const getOrderLineTotal = (order) => {
+    const unitPrice = Number(order?.product_price ?? 0);
+    const quantity = getOrderQuantity(order);
+    return unitPrice * quantity;
+};
+
 const OrderManagement = () => {
     const [orders, setOrders] = useState([]);
     const [error, setError] = useState(null);
@@ -93,6 +110,7 @@ const OrderManagement = () => {
                             <th className="px-4 py-3 text-left">Email</th>
                             <th className="px-4 py-3 text-left">Sản phẩm</th>
                             <th className="px-4 py-3 text-left">Giá</th>
+                            <th className="px-4 py-3 text-left">Số lượng</th>
                             <th className="px-4 py-3 text-left">Liên hệ</th>
                             <th className="px-4 py-3 text-left">Địa chỉ</th>
                             <th className="px-4 py-3 text-left">Ngày đặt</th>
@@ -107,7 +125,8 @@ const OrderManagement = () => {
                                 <td className="px-4 py-3 font-medium">{order.full_name}</td>
                                 <td className="px-4 py-3">{order.email}</td>
                                 <td className="px-4 py-3">{order.product_title}</td>
-                                <td className="px-4 py-3 text-green-600 font-semibold">{order.product_price}đ</td>
+                                <td className="px-4 py-3 text-green-600 font-semibold">{formatVnd(getOrderLineTotal(order))}đ</td>
+                                <td className="px-4 py-3 font-semibold">{getOrderQuantity(order)}</td>
                                 <td className="px-4 py-3">{order.phone}</td>
                                 <td className="px-4 py-3">{order.address}</td>
                                 <td className="px-4 py-3">{new Date(order.created_at).toLocaleDateString('vi-VN')}</td>
@@ -122,7 +141,7 @@ const OrderManagement = () => {
                                         value={order.status || 'pending'}
                                         onChange={(e) => handleUpdateStatus(order.id, e.target.value)}
                                     >
-                                        <option value="confirmed">Chờ xác nhận</option>
+                                        <option value="pending">Chờ xác nhận</option>
                                         <option value="confirmed">Đã xác nhận</option>
                                         <option value="shipping">Đang giao hàng</option>
                                         <option value="completed">Hoàn thành</option>

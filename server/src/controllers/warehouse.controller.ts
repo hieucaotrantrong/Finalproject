@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
-import { applyInventoryChange, ensureInventoryRow } from '../services/inventory.service';
+import { applyInventoryChange, ensureInventoryRow } from '../services/warehouse.service';
 
 const getActorId = (req: Request): number | null => {
     const parsed = Number(req.user?.userId);

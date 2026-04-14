@@ -331,6 +331,20 @@ const ProductDetail = () => {
         return acc;
     }, {});
     const hasSpecs = Object.keys(groupedSpecs).length > 0;
+    const totalReviews = reviews.length;
+    const averageRating = totalReviews > 0
+        ? reviews.reduce((sum, item) => sum + Number(item?.rating || 0), 0) / totalReviews
+        : 0;
+    const ratingBreakdown = [5, 4, 3, 2, 1].map((star) => {
+        const count = reviews.filter((item) => Number(item?.rating) === star).length;
+        const percent = totalReviews > 0 ? (count / totalReviews) * 100 : 0;
+        return { star, count, percent };
+    });
+    const formatPercent = (value) => {
+        if (value <= 0) return '0%';
+        if (value >= 100) return '100%';
+        return `${value.toFixed(1)}%`;
+    };
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -508,6 +522,42 @@ const ProductDetail = () => {
 {/* ================= REVIEW ================= */}
 <div id="product-reviews" className="max-w-screen-xl mx-auto px-4 mt-10 bg-white p-6 rounded">
     <h2 className="text-xl font-semibold mb-4">Đánh giá sản phẩm</h2>
+
+    <div className="mb-6 max-w-2xl rounded-lg bg-white p-3 md:p-4">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-[130px_1fr] md:items-center">
+            <div className="text-center md:text-left">
+                <div className="flex items-end justify-center gap-2 md:justify-start">
+                    <span className="text-yellow-500 text-lg">★</span>
+                    <span className="text-4xl font-bold text-gray-900">
+                        {averageRating.toLocaleString('vi-VN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+                    </span>
+                    <span className="pb-1 text-lg text-gray-400">/5</span>
+                </div>
+                <p className="mt-1 text-sm text-gray-700">
+                    {totalReviews.toLocaleString('vi-VN')} đánh giá
+                </p>
+            </div>
+
+            <div className="space-y-1.5 md:max-w-md">
+                {ratingBreakdown.map((item) => (
+                    <div key={item.star} className="grid grid-cols-[28px_1fr_44px] items-center gap-2 text-sm">
+                        <span className="font-medium text-gray-900">
+                            {item.star}<span className="text-yellow-500">★</span>
+                        </span>
+                        <div className="h-1.5 overflow-hidden rounded-full bg-gray-200">
+                            <div
+                                className="h-full rounded-full bg-blue-400"
+                                style={{ width: `${Math.max(0, Math.min(100, item.percent))}%` }}
+                            />
+                        </div>
+                        <span className="text-right font-medium text-gray-700">
+                            {formatPercent(item.percent)}
+                        </span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    </div>
 
     {/* FORM */}
     {canReview && (

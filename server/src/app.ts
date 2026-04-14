@@ -5,7 +5,7 @@ import authRoutes from './routes/authRoutes';
 import bannerRouter from "./routes/bannerRouter";
 import shippingRoutes from './routes/shipping';
 import orderRoutes from './routes/order.routes';
-import inventoryRoutes from './routes/inventory.routes';
+import warehouseRoutes from './routes/warehouse.routes';
 
 const app = express();
 
@@ -17,6 +17,6 @@ app.use('/api/auth', authRoutes);
 app.use("/api/banners", bannerRouter);
 app.use('/api/shipping', shippingRoutes);
 app.use('/api/orders', orderRoutes);
-app.use('/api/inventory', inventoryRoutes);
+app.use('/api/inventory', warehouseRoutes);
 
 export default app;

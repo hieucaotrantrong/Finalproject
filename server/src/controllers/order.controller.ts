@@ -4,9 +4,134 @@ import jwt from "jsonwebtoken";
 import axios from "axios";
 import crypto from "crypto";
 import { randomUUID } from "crypto";
-import { applyInventoryChange } from '../services/inventory.service';
+import { applyInventoryChange } from '../services/warehouse.service';
 
 const STOCK_DEDUCT_STATUSES = new Set(['confirmed', 'shipping', 'completed']);
+let hasOrdersShippingFeeColumn: boolean | null = null;
+let supportsAwaitingPaymentStatus: boolean | null = null;
+
+const ensureOrdersShippingFeeColumn = async (): Promise<boolean> => {
+    if (hasOrdersShippingFeeColumn !== null) {
+        return hasOrdersShippingFeeColumn;
+    }
+
+    const columnCheck = await pool.query(
+        `SELECT 1
+         FROM information_schema.columns
+         WHERE table_schema = 'public'
+           AND table_name = 'orders'
+           AND column_name = 'shipping_fee'
+         LIMIT 1`
+    );
+
+    hasOrdersShippingFeeColumn = columnCheck.rows.length > 0;
+
+    // Tự bổ sung cột nếu thiếu để không làm mất phí ship khi lưu đơn.
+    if (!hasOrdersShippingFeeColumn) {
+        await pool.query(
+            `ALTER TABLE orders
+             ADD COLUMN IF NOT EXISTS shipping_fee NUMERIC(12,2) NOT NULL DEFAULT 0`
+        );
+        hasOrdersShippingFeeColumn = true;
+    }
+
+    return hasOrdersShippingFeeColumn;
+};
+
+const ensureOrdersStatusSupportsAwaitingPayment = async (): Promise<boolean> => {
+    if (supportsAwaitingPaymentStatus !== null) {
+        return supportsAwaitingPaymentStatus;
+    }
+
+    const constraintResult = await pool.query(
+        `SELECT
+            c.conname,
+            pg_get_constraintdef(c.oid) AS definition
+         FROM pg_constraint c
+         INNER JOIN pg_class t ON t.oid = c.conrelid
+         INNER JOIN pg_namespace n ON n.oid = c.connamespace
+         WHERE n.nspname = 'public'
+           AND t.relname = 'orders'
+           AND c.conname = 'orders_status_check'
+         LIMIT 1`
+    );
+
+    if (constraintResult.rows.length === 0) {
+        supportsAwaitingPaymentStatus = true;
+        return supportsAwaitingPaymentStatus;
+    }
+
+    const currentDefinition = String(constraintResult.rows[0]?.definition || '').toLowerCase();
+    if (currentDefinition.includes('awaiting_payment')) {
+        supportsAwaitingPaymentStatus = true;
+        return supportsAwaitingPaymentStatus;
+    }
+
+    try {
+        await pool.query(`ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_status_check`);
+        await pool.query(
+            `ALTER TABLE orders
+             ADD CONSTRAINT orders_status_check
+             CHECK (
+                 status = ANY (
+                     ARRAY[
+                         'pending',
+                         'confirmed',
+                         'shipping',
+                         'completed',
+                         'cancelled',
+                         'awaiting_payment'
+                     ]::text[]
+                 )
+             )`
+        );
+        supportsAwaitingPaymentStatus = true;
+    } catch (error) {
+        console.error('Không thể cập nhật orders_status_check, fallback về pending cho thanh toán online:', error);
+        supportsAwaitingPaymentStatus = false;
+    }
+
+    return supportsAwaitingPaymentStatus;
+};
+
+const formatVNPayDate = (date: Date = new Date()): string => {
+    const vnDate = new Date(date.getTime() + 7 * 60 * 60 * 1000);
+    const yyyy = vnDate.getUTCFullYear();
+    const mm = String(vnDate.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(vnDate.getUTCDate()).padStart(2, '0');
+    const hh = String(vnDate.getUTCHours()).padStart(2, '0');
+    const mi = String(vnDate.getUTCMinutes()).padStart(2, '0');
+    const ss = String(vnDate.getUTCSeconds()).padStart(2, '0');
+
+    return `${yyyy}${mm}${dd}${hh}${mi}${ss}`;
+};
+
+const buildVNPaySignData = (params: Record<string, string>): string => {
+    const sortedKeys = Object.keys(params).sort();
+    return sortedKeys
+        .map((key) => `${key}=${encodeURIComponent(params[key]).replace(/%20/g, '+')}`)
+        .join('&');
+};
+
+const resolveClientReturnUrl = (rawUrl: string | undefined): string => {
+    if (typeof rawUrl === 'string' && /^https?:\/\//i.test(rawUrl)) {
+        return rawUrl;
+    }
+
+    return `${process.env.FRONTEND_URL || 'http://localhost:5173'}/orders`;
+};
+
+const buildRedirectUrl = (baseUrl: string, params: Record<string, string>): string => {
+    try {
+        const url = new URL(baseUrl);
+        Object.entries(params).forEach(([key, value]) => {
+            url.searchParams.set(key, value);
+        });
+        return url.toString();
+    } catch {
+        return `${process.env.FRONTEND_URL || 'http://localhost:5173'}/orders`;
+    }
+};
 
 const getAdminEmails = async (): Promise<string[]> => {
     try {
@@ -73,6 +198,13 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
         const normalizedProductPrice = Number(productPrice) || 0;
         const normalizedQuantity = Number(quantity) || 1;
         const normalizedShippingFee = Number(shippingFee) || 0;
+        const normalizedPaymentMethod = String(paymentMethod || '').toLowerCase();
+        const allowedPaymentMethods = new Set(['cod', 'momo', 'vnpay']);
+
+        if (!allowedPaymentMethods.has(normalizedPaymentMethod)) {
+            res.status(400).json({ error: 'Phương thức thanh toán không hợp lệ' });
+            return;
+        }
 
         if (normalizedProductPrice <= 0 || normalizedQuantity <= 0 || normalizedShippingFee < 0) {
             res.status(400).json({ error: "Dữ liệu tiền đơn hàng không hợp lệ" });
@@ -112,11 +244,14 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
 
         const totalAmount =
             normalizedProductPrice * normalizedQuantity + normalizedShippingFee;
+        const supportShippingFeeColumn = await ensureOrdersShippingFeeColumn();
+        const supportAwaitingPaymentStatus = await ensureOrdersStatusSupportsAwaitingPayment();
+        const onlineInitialStatus = supportAwaitingPaymentStatus ? 'awaiting_payment' : 'pending';
 
         /*-----------------------------------------
         THANH TOÁN MOMO
         -------------------------------------------*/
-        if (paymentMethod === "momo") {
+        if (normalizedPaymentMethod === "momo") {
 
             const partnerCode = "MOMO";
             const accessKey = "F8BBA842ECF85";
@@ -153,22 +288,44 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
                 .digest("hex");
 
             // Lưu đơn trước khi gọi MoMo
-            await pool.query(
-                `INSERT INTO orders 
-                (id, full_name, email, phone, address, product_id, product_title, product_price, quantity, status, payment_method)
-                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending','momo')`,
-                [
-                    orderId,
-                    fullName,
-                    email,
-                    phone,
-                    address,
-                    productId,
-                    productTitle,
-                    normalizedProductPrice,
-                    normalizedQuantity
-                ]
-            );
+            if (supportShippingFeeColumn) {
+                await pool.query(
+                    `INSERT INTO orders 
+                    (id, full_name, email, phone, address, product_id, product_title, product_price, quantity, shipping_fee, status, payment_method)
+                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'momo')`,
+                    [
+                        orderId,
+                        fullName,
+                        email,
+                        phone,
+                        address,
+                        productId,
+                        productTitle,
+                        normalizedProductPrice,
+                        normalizedQuantity,
+                        normalizedShippingFee,
+                        onlineInitialStatus
+                    ]
+                );
+            } else {
+                await pool.query(
+                    `INSERT INTO orders 
+                    (id, full_name, email, phone, address, product_id, product_title, product_price, quantity, status, payment_method)
+                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'momo')`,
+                    [
+                        orderId,
+                        fullName,
+                        email,
+                        phone,
+                        address,
+                        productId,
+                        productTitle,
+                        normalizedProductPrice,
+                        normalizedQuantity,
+                        onlineInitialStatus
+                    ]
+                );
+            }
 
             await notifyAdminsNewOrder(
                 email,
@@ -237,23 +394,143 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
         }
 
         /*-----------------------------------------
+        THANH TOÁN VNPAY
+        -------------------------------------------*/
+        if (normalizedPaymentMethod === "vnpay") {
+            const vnpTmnCode = process.env.VNP_TMN_CODE || "ZF2ENMU8";
+            const vnpHashSecret = process.env.VNP_HASH_SECRET || "E60GR73NEC2MI25E48TF7M0QNI6CVGVR";
+            const vnpUrl = process.env.VNP_URL || "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
+            const backendUrl = process.env.BACKEND_URL || "http://localhost:5000";
+
+            const orderId = randomUUID();
+            const amount = Math.round(totalAmount * 100);
+            const clientIp = (
+                (req.headers['x-forwarded-for'] as string) ||
+                req.socket.remoteAddress ||
+                req.ip ||
+                '127.0.0.1'
+            )
+                .toString()
+                .split(',')[0]
+                .trim();
+
+            const clientReturnUrl = resolveClientReturnUrl(returnUrl);
+            const vnpReturnUrl = `${backendUrl}/api/orders/vnpay-return?clientReturnUrl=${encodeURIComponent(clientReturnUrl)}`;
+
+            if (supportShippingFeeColumn) {
+                await pool.query(
+                    `INSERT INTO orders
+                    (id, full_name, email, phone, address, product_id, product_title, product_price, quantity, shipping_fee, status, payment_method)
+                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'vnpay')`,
+                    [
+                        orderId,
+                        fullName,
+                        email,
+                        phone,
+                        address,
+                        productId,
+                        productTitle,
+                        normalizedProductPrice,
+                        normalizedQuantity,
+                        normalizedShippingFee,
+                        onlineInitialStatus
+                    ]
+                );
+            } else {
+                await pool.query(
+                    `INSERT INTO orders
+                    (id, full_name, email, phone, address, product_id, product_title, product_price, quantity, status, payment_method)
+                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'vnpay')`,
+                    [
+                        orderId,
+                        fullName,
+                        email,
+                        phone,
+                        address,
+                        productId,
+                        productTitle,
+                        normalizedProductPrice,
+                        normalizedQuantity,
+                        onlineInitialStatus
+                    ]
+                );
+            }
+
+            await notifyAdminsNewOrder(
+                email,
+                productTitle,
+                normalizedQuantity,
+                'vnpay'
+            );
+
+            const params: Record<string, string> = {
+                vnp_Version: '2.1.0',
+                vnp_Command: 'pay',
+                vnp_TmnCode: vnpTmnCode,
+                vnp_Locale: 'vn',
+                vnp_CurrCode: 'VND',
+                vnp_TxnRef: orderId,
+                vnp_OrderInfo: `Thanh toan don hang ${orderId}`,
+                vnp_OrderType: 'other',
+                vnp_Amount: String(amount),
+                vnp_ReturnUrl: vnpReturnUrl,
+                vnp_IpAddr: clientIp,
+                vnp_CreateDate: formatVNPayDate(),
+                vnp_ExpireDate: formatVNPayDate(new Date(Date.now() + 15 * 60 * 1000))
+            };
+
+            const signData = buildVNPaySignData(params);
+            const secureHash = crypto
+                .createHmac('sha512', vnpHashSecret)
+                .update(signData)
+                .digest('hex');
+
+            const payUrl = `${vnpUrl}?${signData}&vnp_SecureHash=${secureHash}`;
+
+            res.json({
+                paymentMethod: 'vnpay',
+                payUrl
+            });
+            return;
+        }
+
+        /*-----------------------------------------
         THANH TOÁN COD
         -------------------------------------------*/
-        await pool.query(
-            `INSERT INTO orders 
-            (full_name, email, phone, address, product_id, product_title, product_price, quantity, status, payment_method)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pending','cod')`,
-            [
-                fullName,
-                email,
-                phone,
-                address,
-                productId,
-                productTitle,
-                normalizedProductPrice,
-                normalizedQuantity
-            ]
-        );
+        if (supportShippingFeeColumn) {
+            await pool.query(
+                `INSERT INTO orders 
+                (full_name, email, phone, address, product_id, product_title, product_price, quantity, shipping_fee, status, payment_method)
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending','cod')`,
+                [
+                    fullName,
+                    email,
+                    phone,
+                    address,
+                    productId,
+                    productTitle,
+                    normalizedProductPrice,
+                    normalizedQuantity,
+                    normalizedShippingFee
+                ]
+            );
+        } else {
+            await pool.query(
+                `INSERT INTO orders 
+                (full_name, email, phone, address, product_id, product_title, product_price, quantity, status, payment_method)
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pending','cod')`,
+                [
+                    fullName,
+                    email,
+                    phone,
+                    address,
+                    productId,
+                    productTitle,
+                    normalizedProductPrice,
+                    normalizedQuantity
+                ]
+            );
+        }
 
         await notifyAdminsNewOrder(
             email,
@@ -315,13 +592,21 @@ export const momoIPN = async (req: Request, res: Response): Promise<void> => {
                     );
                 }
 
+                // Giữ trạng thái pending để admin xác nhận thủ công sau khi đã thanh toán.
                 await client.query(
-                    `UPDATE orders SET status = 'confirmed' WHERE id = $1`,
+                    `UPDATE orders SET status = 'pending' WHERE id = $1`,
                     [orderId]
                 );
             }
 
             await client.query('COMMIT');
+        } else {
+            await client.query(
+                `UPDATE orders
+                 SET status = CASE WHEN status = 'awaiting_payment' THEN 'cancelled' ELSE status END
+                 WHERE id = $1`,
+                [orderId]
+            );
         }
 
         res.json({ message: "OK" });
@@ -333,12 +618,131 @@ export const momoIPN = async (req: Request, res: Response): Promise<void> => {
         client.release();
     }
 };
+
+/*-----------------------------------------
+VNPay Return URL (callback browser redirect)
+-------------------------------------------*/
+export const vnpayReturn = async (req: Request, res: Response): Promise<void> => {
+    const client = await pool.connect();
+
+    try {
+        const vnpHashSecret = process.env.VNP_HASH_SECRET || "E60GR73NEC2MI25E48TF7M0QNI6CVGVR";
+        const secureHash = String(req.query.vnp_SecureHash || '');
+        const clientReturnUrl = resolveClientReturnUrl(
+            typeof req.query.clientReturnUrl === 'string' ? req.query.clientReturnUrl : undefined
+        );
+
+        const vnpParams: Record<string, string> = {};
+        Object.entries(req.query).forEach(([key, value]) => {
+            if (!key.startsWith('vnp_')) return;
+            if (key === 'vnp_SecureHash' || key === 'vnp_SecureHashType') return;
+
+            const normalizedValue = Array.isArray(value) ? String(value[0] ?? '') : String(value ?? '');
+            vnpParams[key] = normalizedValue;
+        });
+
+        const signData = buildVNPaySignData(vnpParams);
+        const expectedHash = crypto
+            .createHmac('sha512', vnpHashSecret)
+            .update(signData)
+            .digest('hex');
+
+        if (!secureHash || secureHash !== expectedHash) {
+            const redirectUrl = buildRedirectUrl(clientReturnUrl, {
+                payment: 'vnpay',
+                status: 'failed',
+                reason: 'invalid-signature'
+            });
+            res.redirect(redirectUrl);
+            return;
+        }
+
+        const orderId = String(vnpParams.vnp_TxnRef || '');
+        const responseCode = String(vnpParams.vnp_ResponseCode || '');
+        const transactionStatus = String(vnpParams.vnp_TransactionStatus || '');
+        const isSuccess = responseCode === '00' && transactionStatus === '00';
+
+        await client.query('BEGIN');
+
+        const orderResult = await client.query(
+            `SELECT * FROM orders WHERE id = $1 FOR UPDATE`,
+            [orderId]
+        );
+
+        if (orderResult.rows.length > 0) {
+            const order = orderResult.rows[0];
+
+            if (isSuccess) {
+                if (!order.inventory_deducted) {
+                    await applyInventoryChange(client, {
+                        productId: Number(order.product_id),
+                        quantityDelta: -Number(order.quantity || 1),
+                        changeType: 'sale',
+                        reason: 'Trừ kho từ VNPay callback',
+                        referenceType: 'order',
+                        referenceId: String(order.id),
+                        actorUserId: null
+                    });
+
+                    await client.query(
+                        `UPDATE orders
+                         SET inventory_deducted = TRUE
+                         WHERE id = $1`,
+                        [orderId]
+                    );
+                }
+
+                // Giữ trạng thái pending để admin xác nhận thủ công sau khi đã thanh toán.
+                await client.query(
+                    `UPDATE orders SET status = 'pending' WHERE id = $1`,
+                    [orderId]
+                );
+            } else {
+                await client.query(
+                    `UPDATE orders
+                     SET status = CASE WHEN status = 'awaiting_payment' THEN 'cancelled' ELSE status END
+                     WHERE id = $1`,
+                    [orderId]
+                );
+            }
+        }
+
+        await client.query('COMMIT');
+
+        const redirectUrl = buildRedirectUrl(clientReturnUrl, {
+            payment: 'vnpay',
+            status: isSuccess ? 'success' : 'failed',
+            orderId,
+            code: responseCode || 'unknown'
+        });
+
+        res.redirect(redirectUrl);
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Lỗi xử lý VNPay return:', error);
+
+        const fallbackUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/orders`;
+        const redirectUrl = buildRedirectUrl(fallbackUrl, {
+            payment: 'vnpay',
+            status: 'failed',
+            reason: 'server-error'
+        });
+        res.redirect(redirectUrl);
+    } finally {
+        client.release();
+    }
+};
 /*-----------------------------------------
     Get all orders   
 -------------------------------------------*/
 export const getAllOrders = async (req: Request, res: Response): Promise<void> => {
     try {
-        const result = await pool.query(`SELECT * FROM orders ORDER BY created_at DESC`);
+        const result = await pool.query(
+            `SELECT *
+             FROM orders
+             WHERE status <> 'awaiting_payment'
+             ORDER BY created_at DESC`
+        );
         res.json(result.rows);
     } catch (error) {
         console.error("Lỗi khi lấy danh sách đơn hàng:", error);
@@ -704,7 +1108,7 @@ export const getUserOrders = async (req: Request, res: Response): Promise<void> 
             `SELECT o.*, p.image AS product_image
              FROM orders o
              LEFT JOIN products p ON p.id = o.product_id
-             WHERE o.email = $1
+             WHERE o.email = $1 AND o.status <> 'awaiting_payment'
              ORDER BY o.created_at DESC`,
             [email]
         );

@@ -14,7 +14,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateProductStockStatus = exports.deleteProduct = exports.updateProduct = exports.createProduct = exports.getProductById = exports.getAllProducts = void 0;
 const database_1 = __importDefault(require("../config/database"));
-const inventory_service_1 = require("../services/inventory.service");
+const warehouse_service_1 = require("../services/warehouse.service");
 const toProductResponse = (product) => (Object.assign(Object.assign({}, product), { is_out_of_stock: Boolean(product === null || product === void 0 ? void 0 : product.is_out_of_stock), stock_quantity: Number((product === null || product === void 0 ? void 0 : product.stock_quantity) || 0) }));
 /*----------------------------------
 Get all products
@@ -102,7 +102,7 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
              RETURNING *`, [title, originalprice, price, discount, tag, image, category, Boolean(is_out_of_stock)]);
         const newProduct = result.rows[0];
         // Ensure each product always has an inventory row, default quantity = 0.
-        yield (0, inventory_service_1.ensureInventoryRow)(client, Number(newProduct.id));
+        yield (0, warehouse_service_1.ensureInventoryRow)(client, Number(newProduct.id));
         newProduct.stock_quantity = 0;
         // 2. insert images
         if (Array.isArray(images)) {

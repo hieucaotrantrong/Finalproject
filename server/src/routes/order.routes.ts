@@ -1,5 +1,5 @@
 import express, { Request, Response } from 'express';
-import { momoIPN } from '../controllers/order.controller';
+import { momoIPN, vnpayReturn } from '../controllers/order.controller';
 import {
     createOrder,
     getAllOrders,
@@ -62,5 +62,10 @@ router.delete('/user/:id', auth, asyncHandler(deleteUserOrder));
    MoMo IPN (callback từ MoMo)
 -----------------------------------*/
 router.post('/momo-ipn', asyncHandler(momoIPN));
+
+/*----------------------------------
+   VNPay Return URL
+-----------------------------------*/
+router.get('/vnpay-return', asyncHandler(vnpayReturn));
 
 export default router;

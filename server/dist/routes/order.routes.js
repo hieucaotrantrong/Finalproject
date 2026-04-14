@@ -49,4 +49,8 @@ router.delete('/user/:id', auth_1.auth, asyncHandler(order_controller_2.deleteUs
    MoMo IPN (callback từ MoMo)
 -----------------------------------*/
 router.post('/momo-ipn', asyncHandler(order_controller_1.momoIPN));
+/*----------------------------------
+   VNPay Return URL
+-----------------------------------*/
+router.get('/vnpay-return', asyncHandler(order_controller_1.vnpayReturn));
 exports.default = router;

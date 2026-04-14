@@ -9,7 +9,7 @@ import Footers from '../components/Footers';
 import AdminUsers from './AdminUsers';
 import AdminBanner from './AdminBanner';
 import Notifications from '../components/Notifications';
-import InventoryManagement from './InventoryManagement';
+import WarehouseManagement from './WarehouseManagement';
 
 const SIDE_PREFIX = 'side::';
 const TOP_PREFIX = 'top::';
@@ -687,7 +687,7 @@ setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
             ) : activeTab === 'orders' ? (
                 <OrderManagement />
             ) : activeTab === 'inventory' ? (
-                <InventoryManagement />
+                <WarehouseManagement />
             ) : activeTab === 'revenue' ? (
                 <RevenueManagement />
             ) : activeTab === 'users' ? (
