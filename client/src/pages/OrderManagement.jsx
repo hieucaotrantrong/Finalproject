@@ -138,7 +138,7 @@ const OrderManagement = () => {
                                 <td className="px-4 py-3">
                                     <select
                                         className="border rounded px-2 py-1 bg-white text-sm"
-                                        value={order.status || 'pending'}
+                                        value={order.status === 'awaiting_payment' ? 'pending' : (order.status || 'pending')}
                                         onChange={(e) => handleUpdateStatus(order.id, e.target.value)}
                                     >
                                         <option value="pending">Chờ xác nhận</option>

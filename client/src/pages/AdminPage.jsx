@@ -38,6 +38,7 @@ const [form, setForm] = useState({
 const [specs, setSpecs] = useState([
     { group_name: '', spec_key: '', spec_value: '' }
 ]);
+    const [specsImage, setSpecsImage] = useState('');
     const [popup, setPopup] = useState({ show: false, message: '', type: 'success' });
 
     // ✅ Show popup
@@ -171,7 +172,8 @@ const handleSubmit = async (e) => {
             originalprice: form.originalprice.replace(/\./g, ''),
             price: form.price.replace(/\./g, ''),
             discount: autoDiscount,
-             specs: specs 
+            specs: specs,
+            specs_image: specsImage
         };
 
         if (editingProduct) {
@@ -196,6 +198,7 @@ const handleSubmit = async (e) => {
         });
 
         setPreview('');
+        setSpecsImage('');
         fetchProducts();
 setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
     } catch (error) {
@@ -262,6 +265,7 @@ setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
                     ? detailProduct.specs
                     : [{ group_name: '', spec_key: '', spec_value: '' }]
             );
+            setSpecsImage(detailProduct.specs_image || '');
         } catch (error) {
             console.error('Lỗi khi lấy chi tiết sản phẩm để sửa:', error);
             showPopup('Không tải được thông số kỹ thuật để sửa!', 'error');
@@ -513,6 +517,37 @@ setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
                                 <img src={preview} alt="Preview" className="w-24 h-24 object-cover mt-2 border rounded" />
                             )}
                         </div>
+                        <div className="col-span-1 md:col-span-2">
+                            <label className="block font-semibold text-gray-700 mb-2">Hình ảnh thông số kỹ thuật</label>
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                        const reader = new FileReader();
+                                        reader.onload = (event) => {
+                                            setSpecsImage(event.target.result);
+                                        };
+                                        reader.readAsDataURL(file);
+                                    }
+                                }}
+                                className="border border-gray-300 rounded px-4 py-2 w-full"
+                            />
+                            {specsImage && (
+                                <div className="mt-3">
+                                    <img src={specsImage} alt="Specs preview" className="w-32 h-32 object-cover rounded border" />
+                                    <button
+                                        type="button"
+                                        onClick={() => setSpecsImage('')}
+                                        className="mt-2 text-red-500 text-sm hover:underline"
+                                    >
+                                        Xóa ảnh
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                        
                         <div className="col-span-1 md:col-span-2 mt-6 border rounded-xl bg-white shadow-sm overflow-hidden">
     {/* Header */}
     <div className="bg-gray-50 px-6 py-4 border-b flex justify-between items-center">
@@ -575,7 +610,7 @@ setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
                                 title="Xóa dòng này"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" size="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-5 h-5">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d=" orbit-close 19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                 </svg>
                             </button>
                         </td>
@@ -607,6 +642,7 @@ setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
         </button>
     </div>
 </div>
+
                         <button
                             type="submit"
                             className="w-full rounded border border-gray-600 bg-white py-2 font-semibold text-gray-700 transition hover:bg-gray-100"

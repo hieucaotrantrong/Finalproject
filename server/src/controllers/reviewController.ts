@@ -53,12 +53,16 @@ export const createReview = async (req: Request, res: Response): Promise<void> =
 // --- 3. LẤY DANH SÁCH ĐÁNH GIÁ ---
 export const getReviews = async (req: Request, res: Response): Promise<void> => {
   try {
+    const userId = req.user?.userId ? Number(req.user.userId) : null;
     const { rows } = await pool.query(
-      `SELECT r.*, u.first_name, u.last_name 
-       FROM reviews r 
-       LEFT JOIN users u ON r.email = u.email 
-       WHERE r.product_id = $1 ORDER BY r.created_at DESC`,
-      [req.params.productId]
+      `SELECT r.*, COALESCE(r.likes_count, 0) AS likes_count, u.first_name, u.last_name,
+        CASE WHEN rl.user_id IS NULL THEN false ELSE true END AS liked_by_user
+       FROM reviews r
+       LEFT JOIN users u ON r.email = u.email
+       LEFT JOIN review_likes rl ON rl.review_id = r.id AND rl.user_id = $2
+       WHERE r.product_id = $1
+       ORDER BY r.created_at DESC`,
+      [req.params.productId, userId]
     );
     res.json(rows);
   } catch (error) {
@@ -66,7 +70,57 @@ export const getReviews = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
-// --- 4. KIỂM TRA QUYỀN (Dùng cho Frontend hiển thị nút) ---
+// --- 4. LIKE REVIEW ---
+export const likeReview = async (req: Request, res: Response): Promise<void> => {
+  const { reviewId } = req.params;
+
+  try {
+    const userId = req.user?.userId ? Number(req.user.userId) : null;
+    if (!userId) {
+      res.status(401).json({ message: "Vui lòng đăng nhập" });
+      return;
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      const insert = await client.query(
+        `INSERT INTO review_likes (review_id, user_id) VALUES ($1, $2)
+         ON CONFLICT DO NOTHING RETURNING id`,
+        [reviewId, userId]
+      );
+
+      if (insert.rowCount === 0) {
+        // user already liked
+        const { rows } = await client.query(
+          `SELECT COALESCE(likes_count, 0) AS likes_count FROM reviews WHERE id = $1`,
+          [reviewId]
+        );
+        await client.query("COMMIT");
+        res.json({ liked: false, likes_count: rows[0]?.likes_count || 0 });
+        return;
+      }
+
+      const up = await client.query(
+        `UPDATE reviews SET likes_count = COALESCE(likes_count, 0) + 1 WHERE id = $1 RETURNING likes_count`,
+        [reviewId]
+      );
+
+      await client.query("COMMIT");
+      res.json({ liked: true, likes_count: up.rows[0]?.likes_count || 0 });
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi server" });
+  }
+};
+
+// --- 5. KIỂM TRA QUYỀN (Dùng cho Frontend hiển thị nút) ---
 export const canReview = async (req: Request, res: Response): Promise<void> => {
   const userEmail = await getUserEmail(req.user?.userId);
   if (!userEmail) {

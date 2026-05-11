@@ -5,10 +5,92 @@ import axios from "axios";
 import crypto from "crypto";
 import { randomUUID } from "crypto";
 import { applyInventoryChange } from '../services/warehouse.service';
+import transporter from '../config/mail';
 
 const STOCK_DEDUCT_STATUSES = new Set(['confirmed', 'shipping', 'completed']);
 let hasOrdersShippingFeeColumn: boolean | null = null;
-let supportsAwaitingPaymentStatus: boolean | null = null;
+const sentOrderConfirmationEmails = new Set<string>();
+
+const formatCurrencyVND = (value: number): string => {
+    return new Intl.NumberFormat('vi-VN', {
+        style: 'currency',
+        currency: 'VND'
+    }).format(value || 0);
+};
+
+const sendOrderConfirmationEmail = async (order: any): Promise<void> => {
+    const orderId = String(order.id || '');
+    const email = String(order.email || '').trim();
+
+    if (!orderId || !email) {
+        return;
+    }
+
+    const emailKey = `${orderId}:${email}`;
+    if (sentOrderConfirmationEmails.has(emailKey)) {
+        return;
+    }
+
+    const productTitle = String(order.product_title || 'Sản phẩm');
+    const quantity = Number(order.quantity || 1);
+    const productPrice = Number(order.product_price || 0);
+    const shippingFee = Number(order.shipping_fee || 0);
+    const totalAmount = productPrice * quantity + shippingFee;
+    const paymentMethod = String(order.payment_method || 'cod').toUpperCase();
+    const status = String(order.status || 'pending');
+
+    await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: `Xác nhận đơn hàng #${orderId} - TdddWebsite`,
+        text: [
+            'TdddWebsite',
+            '',
+            `Xin chào ${order.full_name || ''},`,
+            '',
+            'Chúng tôi đã nhận được thông tin mua hàng của bạn. Dưới đây là chi tiết đơn hàng:',
+            '',
+            `Mã đơn: ${orderId}`,
+            `Sản phẩm: ${productTitle}`,
+            `Số lượng: ${quantity}`,
+            `Đơn giá: ${formatCurrencyVND(productPrice)}`,
+            `Phí ship: ${formatCurrencyVND(shippingFee)}`,
+            `Tổng tiền: ${formatCurrencyVND(totalAmount)}`,
+            `Thanh toán: ${paymentMethod}`,
+            `Trạng thái: ${status}`,
+            '',
+            'Cảm ơn bạn đã mua hàng tại TdddWebsite.'
+        ].join('\n'),
+        html: `
+            <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827;">
+                <h2>Đơn hàng của bạn đã được ghi nhận</h2>
+                <p>Xin chào ${order.full_name || ''},</p>
+                <p>Chúng tôi đã nhận được thông tin mua hàng của bạn. Dưới đây là chi tiết đơn hàng:</p>
+                <ul>
+                    <li>Mã đơn: ${orderId}</li>
+                    <li>Sản phẩm: ${productTitle}</li>
+                    <li>Số lượng: ${quantity}</li>
+                    <li>Đơn giá: ${formatCurrencyVND(productPrice)}</li>
+                    <li>Phí ship: ${formatCurrencyVND(shippingFee)}</li>
+                    <li>Tổng tiền: ${formatCurrencyVND(totalAmount)}</li>
+                    <li>Thanh toán: ${paymentMethod}</li>
+                    <li>Trạng thái: ${status}</li>
+                </ul>
+                <p>Cảm ơn bạn đã mua hàng tại TdddWebsite.</p>
+            </div>
+        `
+    });
+
+    sentOrderConfirmationEmails.add(emailKey);
+};
+
+const trySendOrderConfirmationEmail = async (order: any): Promise<void> => {
+    try {
+        await sendOrderConfirmationEmail(order);
+    } catch (error) {
+        console.error('Không thể gửi email xác nhận đơn hàng:', error);
+    }
+};
 
 const ensureOrdersShippingFeeColumn = async (): Promise<boolean> => {
     if (hasOrdersShippingFeeColumn !== null) {
@@ -36,62 +118,6 @@ const ensureOrdersShippingFeeColumn = async (): Promise<boolean> => {
     }
 
     return hasOrdersShippingFeeColumn;
-};
-
-const ensureOrdersStatusSupportsAwaitingPayment = async (): Promise<boolean> => {
-    if (supportsAwaitingPaymentStatus !== null) {
-        return supportsAwaitingPaymentStatus;
-    }
-
-    const constraintResult = await pool.query(
-        `SELECT
-            c.conname,
-            pg_get_constraintdef(c.oid) AS definition
-         FROM pg_constraint c
-         INNER JOIN pg_class t ON t.oid = c.conrelid
-         INNER JOIN pg_namespace n ON n.oid = c.connamespace
-         WHERE n.nspname = 'public'
-           AND t.relname = 'orders'
-           AND c.conname = 'orders_status_check'
-         LIMIT 1`
-    );
-
-    if (constraintResult.rows.length === 0) {
-        supportsAwaitingPaymentStatus = true;
-        return supportsAwaitingPaymentStatus;
-    }
-
-    const currentDefinition = String(constraintResult.rows[0]?.definition || '').toLowerCase();
-    if (currentDefinition.includes('awaiting_payment')) {
-        supportsAwaitingPaymentStatus = true;
-        return supportsAwaitingPaymentStatus;
-    }
-
-    try {
-        await pool.query(`ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_status_check`);
-        await pool.query(
-            `ALTER TABLE orders
-             ADD CONSTRAINT orders_status_check
-             CHECK (
-                 status = ANY (
-                     ARRAY[
-                         'pending',
-                         'confirmed',
-                         'shipping',
-                         'completed',
-                         'cancelled',
-                         'awaiting_payment'
-                     ]::text[]
-                 )
-             )`
-        );
-        supportsAwaitingPaymentStatus = true;
-    } catch (error) {
-        console.error('Không thể cập nhật orders_status_check, fallback về pending cho thanh toán online:', error);
-        supportsAwaitingPaymentStatus = false;
-    }
-
-    return supportsAwaitingPaymentStatus;
 };
 
 const formatVNPayDate = (date: Date = new Date()): string => {
@@ -245,8 +271,7 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
         const totalAmount =
             normalizedProductPrice * normalizedQuantity + normalizedShippingFee;
         const supportShippingFeeColumn = await ensureOrdersShippingFeeColumn();
-        const supportAwaitingPaymentStatus = await ensureOrdersStatusSupportsAwaitingPayment();
-        const onlineInitialStatus = supportAwaitingPaymentStatus ? 'awaiting_payment' : 'pending';
+        const onlineInitialStatus = 'pending';
 
         /*-----------------------------------------
         THANH TOÁN MOMO
@@ -265,10 +290,12 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
                 typeof returnUrl === "string" &&
                 /^https?:\/\//i.test(returnUrl);
 
-            const redirectUrl = isValidReturnUrl
+            const backendUrl = process.env.BACKEND_URL || "http://localhost:5000";
+            const clientReturnUrl = isValidReturnUrl
                 ? returnUrl
                 : `${process.env.FRONTEND_URL || "http://localhost:5173"}/orders`;
-            const ipnUrl = "http://localhost:5000/api/orders/momo-ipn";
+            const redirectUrl = `${backendUrl}/api/orders/momo-return?clientReturnUrl=${encodeURIComponent(clientReturnUrl)}`;
+            const ipnUrl = `${backendUrl}/api/orders/momo-ipn`;
 
             const rawSignature =
                 "accessKey=" + accessKey +
@@ -498,10 +525,11 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
         THANH TOÁN COD
         -------------------------------------------*/
         if (supportShippingFeeColumn) {
-            await pool.query(
+            const createdOrder = await pool.query(
                 `INSERT INTO orders 
                 (full_name, email, phone, address, product_id, product_title, product_price, quantity, shipping_fee, status, payment_method)
-                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending','cod')`,
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending','cod')
+                RETURNING *`,
                 [
                     fullName,
                     email,
@@ -514,11 +542,14 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
                     normalizedShippingFee
                 ]
             );
+
+            await trySendOrderConfirmationEmail(createdOrder.rows[0]);
         } else {
-            await pool.query(
+            const createdOrder = await pool.query(
                 `INSERT INTO orders 
                 (full_name, email, phone, address, product_id, product_title, product_price, quantity, status, payment_method)
-                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pending','cod')`,
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pending','cod')
+                RETURNING *`,
                 [
                     fullName,
                     email,
@@ -530,6 +561,8 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
                     normalizedQuantity
                 ]
             );
+
+            await trySendOrderConfirmationEmail(createdOrder.rows[0]);
         }
 
         await notifyAdminsNewOrder(
@@ -561,10 +594,12 @@ export const momoIPN = async (req: Request, res: Response): Promise<void> => {
 
     try {
         const { orderId, resultCode } = req.body;
+        const isSuccess = Number(resultCode) === 0;
+        let orderForMail: any = null;
 
-        if (resultCode === 0) {
-            await client.query('BEGIN');
+        await client.query('BEGIN');
 
+        if (isSuccess) {
             const orderResult = await client.query(
                 `SELECT * FROM orders WHERE id = $1 FOR UPDATE`,
                 [orderId]
@@ -597,16 +632,25 @@ export const momoIPN = async (req: Request, res: Response): Promise<void> => {
                     `UPDATE orders SET status = 'pending' WHERE id = $1`,
                     [orderId]
                 );
-            }
 
-            await client.query('COMMIT');
+                orderForMail = {
+                    ...order,
+                    status: 'pending'
+                };
+            }
         } else {
             await client.query(
                 `UPDATE orders
-                 SET status = CASE WHEN status = 'awaiting_payment' THEN 'cancelled' ELSE status END
+                 SET status = 'cancelled'
                  WHERE id = $1`,
                 [orderId]
             );
+        }
+
+        await client.query('COMMIT');
+
+        if (orderForMail) {
+            await trySendOrderConfirmationEmail(orderForMail);
         }
 
         res.json({ message: "OK" });
@@ -614,6 +658,98 @@ export const momoIPN = async (req: Request, res: Response): Promise<void> => {
         await client.query('ROLLBACK');
         console.error("Lỗi xử lý MoMo IPN:", error);
         res.status(500).json({ error: "IPN error" });
+    } finally {
+        client.release();
+    }
+};
+
+/*-----------------------------------------
+MoMo Return URL (callback browser redirect)
+-------------------------------------------*/
+export const momoReturn = async (req: Request, res: Response): Promise<void> => {
+    const client = await pool.connect();
+
+    try {
+        const orderId = String(req.query.orderId || '');
+        const resultCode = String(req.query.resultCode || '');
+        const isSuccess = resultCode === '0';
+        const clientReturnUrl = resolveClientReturnUrl(
+            typeof req.query.clientReturnUrl === 'string' ? req.query.clientReturnUrl : undefined
+        );
+
+        await client.query('BEGIN');
+
+        const orderResult = await client.query(
+            `SELECT * FROM orders WHERE id = $1 FOR UPDATE`,
+            [orderId]
+        );
+
+        if (orderResult.rows.length > 0) {
+            const order = orderResult.rows[0];
+
+            if (isSuccess) {
+                if (!order.inventory_deducted) {
+                    await applyInventoryChange(client, {
+                        productId: Number(order.product_id),
+                        quantityDelta: -Number(order.quantity || 1),
+                        changeType: 'sale',
+                        reason: 'Trừ kho từ MoMo return',
+                        referenceType: 'order',
+                        referenceId: String(order.id),
+                        actorUserId: null
+                    });
+
+                    await client.query(
+                        `UPDATE orders
+                         SET inventory_deducted = TRUE
+                         WHERE id = $1`,
+                        [orderId]
+                    );
+                }
+
+                await client.query(
+                    `UPDATE orders SET status = 'pending' WHERE id = $1`,
+                    [orderId]
+                );
+
+                await client.query('COMMIT');
+
+                await trySendOrderConfirmationEmail({
+                    ...order,
+                    status: 'pending'
+                });
+            } else {
+                await client.query(
+                    `UPDATE orders
+                     SET status = 'cancelled'
+                     WHERE id = $1`,
+                    [orderId]
+                );
+                await client.query('COMMIT');
+            }
+        } else {
+            await client.query('COMMIT');
+        }
+
+        const redirectUrl = buildRedirectUrl(clientReturnUrl, {
+            payment: 'momo',
+            status: isSuccess ? 'success' : 'failed',
+            orderId,
+            code: resultCode || 'unknown'
+        });
+
+        res.redirect(redirectUrl);
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Lỗi xử lý MoMo return:', error);
+
+        const fallbackUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/orders`;
+        const redirectUrl = buildRedirectUrl(fallbackUrl, {
+            payment: 'momo',
+            status: 'failed',
+            reason: 'server-error'
+        });
+        res.redirect(redirectUrl);
     } finally {
         client.release();
     }
@@ -661,6 +797,7 @@ export const vnpayReturn = async (req: Request, res: Response): Promise<void> =>
         const responseCode = String(vnpParams.vnp_ResponseCode || '');
         const transactionStatus = String(vnpParams.vnp_TransactionStatus || '');
         const isSuccess = responseCode === '00' && transactionStatus === '00';
+        let orderForMail: any = null;
 
         await client.query('BEGIN');
 
@@ -697,10 +834,15 @@ export const vnpayReturn = async (req: Request, res: Response): Promise<void> =>
                     `UPDATE orders SET status = 'pending' WHERE id = $1`,
                     [orderId]
                 );
+
+                orderForMail = {
+                    ...order,
+                    status: 'pending'
+                };
             } else {
                 await client.query(
                     `UPDATE orders
-                     SET status = CASE WHEN status = 'awaiting_payment' THEN 'cancelled' ELSE status END
+                     SET status = 'cancelled'
                      WHERE id = $1`,
                     [orderId]
                 );
@@ -708,6 +850,10 @@ export const vnpayReturn = async (req: Request, res: Response): Promise<void> =>
         }
 
         await client.query('COMMIT');
+
+        if (orderForMail) {
+            await trySendOrderConfirmationEmail(orderForMail);
+        }
 
         const redirectUrl = buildRedirectUrl(clientReturnUrl, {
             payment: 'vnpay',
@@ -740,7 +886,6 @@ export const getAllOrders = async (req: Request, res: Response): Promise<void> =
         const result = await pool.query(
             `SELECT *
              FROM orders
-             WHERE status <> 'awaiting_payment'
              ORDER BY created_at DESC`
         );
         res.json(result.rows);
@@ -1108,7 +1253,7 @@ export const getUserOrders = async (req: Request, res: Response): Promise<void> 
             `SELECT o.*, p.image AS product_image
              FROM orders o
              LEFT JOIN products p ON p.id = o.product_id
-             WHERE o.email = $1 AND o.status <> 'awaiting_payment'
+             WHERE o.email = $1
              ORDER BY o.created_at DESC`,
             [email]
         );

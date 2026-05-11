@@ -6,7 +6,7 @@ import Footers from "./Footers";
 import { useCart } from "../context/CartContext";
 import Carousel from "./Carousel";
 import CartItem from "./CartItem";
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, ThumbsUp } from 'lucide-react';
 
 const SIDE_PREFIX = "side::";
 
@@ -71,7 +71,10 @@ const ProductDetail = () => {
 
     const fetchReviews = useCallback(async (productId) => {
         try {
-            const res = await axios.get(`http://localhost:5000/api/reviews/${productId}`);
+            const token = localStorage.getItem("token");
+            const res = await axios.get(`http://localhost:5000/api/reviews/${productId}`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            });
             setReviews(res.data || []);
         } catch (err) {
             console.error("Lỗi lấy đánh giá:", err);
@@ -130,6 +133,36 @@ const ProductDetail = () => {
         } catch (err) {
             const message = err?.response?.data?.message || "Không thể gửi đánh giá";
             alert(message);
+        }
+    };
+
+    const handleLikeReview = async (reviewId) => {
+        try {
+            const token = localStorage.getItem("token");
+            if (!token) {
+                alert("Vui lòng đăng nhập để thực hiện thao tác này");
+                return;
+            }
+
+            const res = await axios.post(
+                `http://localhost:5000/api/reviews/${reviewId}/like`,
+                {},
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            const { liked, likes_count } = res.data;
+            setReviews((prev) =>
+                prev.map((review) =>
+                    review.id === reviewId
+                        ? { ...review, likes_count: likes_count, liked_by_user: liked }
+                        : review
+                )
+            );
+        } catch (err) {
+            const message = err?.response?.data?.message;
+            if (err?.response?.status === 401) alert("Vui lòng đăng nhập");
+            else if (message) alert(message);
+            else console.error("Không thể like đánh giá:", err);
         }
     };
 
@@ -370,8 +403,8 @@ const ProductDetail = () => {
 
             <section className="py-8 bg-white">
                 <div className="max-w-screen-xl px-4 mx-auto">
-                    <div className="lg:grid lg:grid-cols-2 lg:gap-8 xl:gap-16">
-                        <div className="shrink-0 max-w-md lg:max-w-lg mx-auto">
+                    <div className="lg:grid lg:grid-cols-[minmax(380px,460px)_minmax(0,1fr)] lg:gap-8 xl:gap-10">
+                        <div className="shrink-0 w-full max-w-[460px] mx-auto lg:ml-0">
                             {/* Ảnh lớn */}
                             <img
                                 src={mainImage}
@@ -379,7 +412,7 @@ const ProductDetail = () => {
                                 onError={(e) => {
                                     e.currentTarget.src = "/assets/banner.jpg";
                                 }}
-                                className="w-full max-w-md rounded-lg shadow-md mb-4"
+                                className="w-full max-w-[460px] rounded-lg shadow-md mb-4"
                             />
 
                             {/* Ảnh nhỏ */}
@@ -401,7 +434,7 @@ const ProductDetail = () => {
                             </div>
                         </div>
 
-                        <div className="mt-6 sm:mt-8 lg:mt-0">
+                        <div className="mt-6 sm:mt-8 lg:mt-0 lg:pl-4 xl:pl-6">
                             <h1 className="text-xl font-semibold text-gray-900 sm:text-2xl">
                                 {product.title}
                             </h1>
@@ -468,9 +501,22 @@ const ProductDetail = () => {
             </section>
 
             {/* ================= THÔNG SỐ KỸ THUẬT ================= */}
-            {/* ================= THÔNG SỐ KỸ THUẬT ================= */}
-<section className="max-w-screen-xl mx-auto px-4 mt-8 bg-white p-6 rounded shadow-sm">
+       
+        <section className="max-w-screen-xl mx-auto px-4 mt-8 bg-white p-6 rounded shadow-sm">
     <h3 className="text-xl font-semibold mb-6">Thông số kỹ thuật</h3>
+
+    {product.specs_image && (
+                <div className="mb-6 flex justify-center lg:justify-start">
+            <img
+                src={getImageSrc(product.specs_image)}
+                alt="Thông số kỹ thuật"
+                onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                }}
+                        className="max-w-2xl w-full h-auto rounded border border-gray-200"
+            />
+        </div>
+    )}
 
     {hasSpecs ? (
         Object.entries(groupedSpecs).map(([group, items]) => {
@@ -496,15 +542,13 @@ const ProductDetail = () => {
                     {isOpen && (
                         <div className="bg-white pb-4 animate-fadeIn">
                             {items.map((spec, idx) => (
-                                <div
-                                    key={idx}
-                                    className="flex justify-between py-2 text-[14px] leading-6"
-                                >
-                                    {/* Chữ bên trái nhạt, bên phải đậm vừa phải */}
-                                    <span className="text-gray-500 w-1/2">{spec.spec_key}</span>
-                                    <span className="text-gray-800 w-1/2 text-left pl-4 font-normal">
-                                        {spec.spec_value}
-                                    </span>
+                                <div key={idx}>
+                                    <div className="grid grid-cols-[240px_minmax(0,1fr)] items-start gap-4 py-2 text-[14px] leading-6">
+                                        <span className="text-gray-500">{spec.spec_key}</span>
+                                        <span className="text-gray-800 text-left font-normal">
+                                            {spec.spec_value}
+                                        </span>
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -645,11 +689,14 @@ const ProductDetail = () => {
 
                 {/* 5.*/}
                 <div className="flex items-center gap-4 text-[13px] text-gray-400">
-                    <button className="flex items-center gap-1.5 hover:text-blue-500 transition-colors">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                            <path d="M14 10h4.708a2 2 0 011.965 2.344l-1.464 7.32A2 2 0 0117.244 22H7.51a2 2 0 01-1.939-1.483L3.5 10.5h2M14 10V4a2 2 0 00-2-2h-3a2 2 0 00-2 2v6m7 10V10"></path>
-                        </svg>
-                        <span className="text-gray-500">Hữu ích (0)</span>
+                    <button
+                        type="button"
+                        onClick={() => handleLikeReview(r.id)}
+                        disabled={Boolean(r.liked_by_user)}
+                        className={`flex items-center gap-1.5 transition-colors ${r.liked_by_user ? 'text-gray-400 cursor-default' : 'hover:text-blue-500'}`}
+                    >
+                        <ThumbsUp className="h-4 w-4" />
+                        <span className="text-gray-500">{r.liked_by_user ? `Đã hữu ích (${Number(r.likes_count || 0)})` : `Hữu ích (${Number(r.likes_count || 0)})`}</span>
                     </button>
                     <span className="border-l pl-4 border-gray-200">Đăng ngày {formattedDate}</span>
                 </div>

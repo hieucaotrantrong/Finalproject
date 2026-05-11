@@ -69,11 +69,13 @@ const OrderHistory = () => {
         { key: 'completed', label: 'Thành công' }
     ];
 
+    const normalizeOrderStatus = (status) => status === 'awaiting_payment' ? 'pending' : status;
+
     // Logic lọc đơn hàng
    
     const filteredOrders = activeTab === 'all'
-        ? orders.filter(order => order.status === 'completed')
-        : orders.filter(order => order.status === activeTab);
+        ? orders
+        : orders.filter(order => normalizeOrderStatus(order.status) === activeTab);
 
     useEffect(() => {
         fetchUserOrders();

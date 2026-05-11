@@ -1,5 +1,5 @@
 import express from "express";
-import { createReview, getReviews, canReview } from "../controllers/reviewController";
+import { createReview, getReviews, canReview, likeReview } from "../controllers/reviewController";
 import { auth } from "../types/auth";
 
 const router = express.Router();
@@ -11,6 +11,7 @@ const asyncHandler = (fn: any) => {
 };
 
 router.post("/", auth, asyncHandler(createReview));
+router.post("/:reviewId/like", auth, asyncHandler(likeReview));
 router.get("/can-review", auth, asyncHandler(canReview));
 router.get("/:productId", asyncHandler(getReviews));
 

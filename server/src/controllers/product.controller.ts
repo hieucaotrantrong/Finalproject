@@ -110,6 +110,7 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
         category,
         images,
         specs,
+        specs_image,
         is_out_of_stock
     } = req.body;
 
@@ -120,10 +121,10 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
 
         // 1. insert product
         const result = await client.query(
-            `INSERT INTO products (title, originalprice, price, discount, tag, image, category, is_out_of_stock)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            `INSERT INTO products (title, originalprice, price, discount, tag, image, category, is_out_of_stock, specs_image)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
              RETURNING *`,
-            [title, originalprice, price, discount, tag, image, category, Boolean(is_out_of_stock)]
+            [title, originalprice, price, discount, tag, image, category, Boolean(is_out_of_stock), specs_image || null]
         );
 
         const newProduct = result.rows[0];
@@ -180,7 +181,6 @@ Update product (FULL: product + images + specs)
 -----------------------------------*/
 export const updateProduct = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
-
     const {
         title,
         originalprice,
@@ -191,6 +191,7 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
         category,
         images,
         specs,
+        specs_image,
         is_out_of_stock
     } = req.body;
 
@@ -217,7 +218,7 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
 
         // 1. update product
         const result = await client.query(
-            `UPDATE products 
+            `UPDATE products
              SET title = $1,
                  "originalprice" = $2,
                  price = $3,
@@ -225,9 +226,22 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
                  tag = $5,
                  image = $6,
                  category = $7,
-                 is_out_of_stock = $8
-             WHERE id = $9`,
-            [title, originalprice, price, discount, tag, image, category, nextOutOfStock, id]
+                 is_out_of_stock = $8,
+                 specs_image = $9
+             WHERE id = $10
+             RETURNING *`,
+            [
+                title,
+                originalprice,
+                price,
+                discount,
+                tag,
+                image,
+                category,
+                nextOutOfStock,
+                specs_image || null,
+                id
+            ]
         );
 
         if ((result.rowCount ?? 0) === 0) {
@@ -238,10 +252,7 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
 
         // 2. update images
         if (Array.isArray(images)) {
-            await client.query(
-                'DELETE FROM product_images WHERE product_id = $1',
-                [id]
-            );
+            await client.query('DELETE FROM product_images WHERE product_id = $1', [id]);
 
             for (const img of images) {
                 if (!img) continue;
@@ -255,10 +266,7 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
 
         // 🔥 3. update specs
         if (Array.isArray(specs)) {
-            await client.query(
-                'DELETE FROM product_specs WHERE product_id = $1',
-                [id]
-            );
+            await client.query('DELETE FROM product_specs WHERE product_id = $1', [id]);
 
             for (const spec of specs) {
                 if (!spec.spec_key || !spec.spec_value) continue;
@@ -278,7 +286,7 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
 
         await client.query('COMMIT');
 
-        res.json({ message: 'Cập nhật sản phẩm thành công' });
+        res.json({ message: 'Cập nhật sản phẩm thành công', product: toProductResponse(result.rows[0]) });
 
     } catch (err) {
         await client.query('ROLLBACK');
