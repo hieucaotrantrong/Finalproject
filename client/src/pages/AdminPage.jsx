@@ -10,6 +10,7 @@ import AdminUsers from './AdminUsers';
 import AdminBanner from './AdminBanner';
 import Notifications from '../components/Notifications';
 import WarehouseManagement from './WarehouseManagement';
+import DiscountManagement from './DiscountManagement';
 
 const SIDE_PREFIX = 'side::';
 const TOP_PREFIX = 'top::';
@@ -90,6 +91,7 @@ const [specs, setSpecs] = useState([
         { key: 'support', label: 'Quản lý hỗ trợ',  },
         { key: 'users', label: 'Quản lý người dùng',  },
         { key: 'banners', label: 'Quản lý banner',  },
+        { key: 'discounts', label: 'Quản lý mã giảm giá',  },
     ];
 
     const handleLogout = () => {
@@ -730,6 +732,8 @@ setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
                 <AdminUsers />
             ) : activeTab === 'banners' ? (
                  <AdminBanner />
+            ) : activeTab === 'discounts' ? (
+                <DiscountManagement />
             ) : (
                 <SupportManagement />
             )}

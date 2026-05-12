@@ -83,6 +83,10 @@ const CartPayPage = () => {
     const [selectedWardCode, setSelectedWardCode] = useState("");
     const [isMetaLoading, setIsMetaLoading] = useState(false);
     const [metaError, setMetaError] = useState("");
+    const [discountCode, setDiscountCode] = useState("");
+    const [discountInfo, setDiscountInfo] = useState(null);
+    const [discountMessage, setDiscountMessage] = useState("");
+    const [discountLoading, setDiscountLoading] = useState(false);
 
     useEffect(() => {
         fetch("http://localhost:5000/api/banners")
@@ -193,7 +197,51 @@ const CartPayPage = () => {
     };
 
     const getGrandTotal = () => {
-        return getTotalAmount() + shippingFee;
+        const subtotal = getTotalAmount() + shippingFee;
+        if (discountInfo) {
+            return Math.max(0, subtotal - discountInfo.discount_amount);
+        }
+        return subtotal;
+    };
+
+    const verifyDiscount = async () => {
+        if (!discountCode.trim()) {
+            setDiscountMessage("Vui lòng nhập mã giảm giá");
+            setDiscountInfo(null);
+            return;
+        }
+
+        setDiscountLoading(true);
+        setDiscountMessage("");
+        try {
+            const token = localStorage.getItem('token');
+            const response = await axios.post(
+                `${API_BASE_URL}/discounts/verify`,
+                {
+                    code: discountCode.trim(),
+                    cartTotal: getTotalAmount() + shippingFee
+                },
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                }
+            );
+            setDiscountInfo(response.data);
+            setDiscountMessage(`✅ Áp dụng mã giảm giá thành công! Tiết kiệm ${formatPrice(response.data.discount_amount)}₫`);
+        } catch (err) {
+            const errorMsg = err?.response?.data?.error || "Lỗi xác minh mã giảm giá";
+            setDiscountMessage(errorMsg);
+            setDiscountInfo(null);
+        } finally {
+            setDiscountLoading(false);
+        }
+    };
+
+    const removeDiscount = () => {
+        setDiscountCode("");
+        setDiscountInfo(null);
+        setDiscountMessage("");
     };
 
     const selectedProvince = provinces.find((item) => String(item.ProvinceID) === String(selectedProvinceId));
@@ -375,7 +423,8 @@ const CartPayPage = () => {
                         shippingFee,
                         shippingRegion: selectedProvince?.ProvinceName || null,
                         shippingDistrict: selectedDistrict?.DistrictName || null,
-                        shippingWard: selectedWard?.WardName || null
+                        shippingWard: selectedWard?.WardName || null,
+                        discountCode: discountInfo?.code || null
                     }, {
                         headers: {
                             'Authorization': `Bearer ${token}` // Thêm header
@@ -410,7 +459,8 @@ const CartPayPage = () => {
                     shippingFee,
                     shippingRegion: selectedProvince?.ProvinceName || null,
                     shippingDistrict: selectedDistrict?.DistrictName || null,
-                    shippingWard: selectedWard?.WardName || null
+                    shippingWard: selectedWard?.WardName || null,
+                    discountCode: discountInfo?.code || null
                 }, {
                     headers: {
                         'Authorization': `Bearer ${token}` // Thêm header
@@ -521,9 +571,10 @@ const CartPayPage = () => {
                                 {checkoutItems.map((item) => {
                                     const quantity = Number(item.quantity || 1);
                                     const lineTotal = Number(item.price || 0) * quantity;
-                                    const displayAmount = checkoutItems.length === 1
+                                    const subtotal = checkoutItems.length === 1
                                         ? lineTotal + (shippingFeeStatus === "success" ? Number(shippingFee || 0) : 0)
                                         : lineTotal;
+                                    const displayAmount = Math.max(0, subtotal - (discountInfo?.discount_amount || 0));
 
                                     return (
                                         <div key={item.id} className="flex gap-3 p-3 border border-[#e3e5e8] rounded-lg bg-white/70">
@@ -686,6 +737,43 @@ const CartPayPage = () => {
                                     </div>
                                 </div>
 
+                                <div className="rounded-md border border-[#e3e5e8] bg-white/80 p-4 space-y-3">
+                                    <h3 className="text-[15px] font-medium text-gray-800">Mã giảm giá</h3>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            placeholder="Nhập mã giảm giá..."
+                                            className="flex-1 p-2.5 text-[14px] border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-300"
+                                            value={discountCode}
+                                            onChange={(e) => {
+                                                setDiscountCode(e.target.value);
+                                                if (discountMessage) setDiscountMessage("");
+                                            }}
+                                            disabled={discountLoading}
+                                        />
+                                        <button
+                                            onClick={verifyDiscount}
+                                            disabled={discountLoading || !discountCode.trim()}
+                                            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white rounded-md text-[14px] font-medium transition-colors"
+                                        >
+                                            {discountLoading ? "..." : "Áp dụng"}
+                                        </button>
+                                        {discountInfo && (
+                                            <button
+                                                onClick={removeDiscount}
+                                                className="px-3 py-2.5 bg-red-100 hover:bg-red-200 text-red-700 rounded-md text-[14px] font-medium transition-colors"
+                                            >
+                                                ✕
+                                            </button>
+                                        )}
+                                    </div>
+                                    {discountMessage && (
+                                        <p className={`text-[13px] ${discountInfo ? 'text-green-600' : 'text-red-600'}`}>
+                                            {discountMessage}
+                                        </p>
+                                    )}
+                                </div>
+
                                 <div className="rounded-md border border-[#e3e5e8] bg-white/80 p-3 space-y-1.5">
                                     <div className="flex justify-between text-[13px] text-gray-700">
                                         <span>Phí vận chuyển</span>
@@ -701,12 +789,29 @@ const CartPayPage = () => {
                                     </div>
                                 </div>
 
+                                <div className="rounded-md border border-[#e3e5e8] bg-orange-50/50 p-4 space-y-2.5">
+                                    {discountInfo && (
+                                        <>
+                                            <div className="flex justify-between text-[13px] text-gray-700">
+                                                <span>Tạm tính</span>
+                                                <span>{formatPrice(getTotalAmount() + shippingFee)}₫</span>
+                                            </div>
+                                            <div className="flex justify-between text-[13px] text-green-600 font-medium">
+                                                <span>Giảm giá ({discountInfo.discount_type === 'percentage' ? `${discountInfo.discount_value}%` : `${formatPrice(discountInfo.discount_value)}₫`})</span>
+                                                <span>-{formatPrice(discountInfo.discount_amount)}₫</span>
+                                            </div>
+                                            <div className="border-t border-orange-200 pt-2.5"></div>
+                                        </>
+                                    )}
+                                   
+                                </div>
+
                                 <button
                                     onClick={handleOrder}
-                                    className={`w-full mt-2 ${isLoading
+                                    className={`w-full mt-3 ${isLoading
                                         ? 'bg-gray-400 cursor-not-allowed'
                                         : 'bg-[#ff7a00] hover:bg-[#e56f00]'
-                                        } text-white py-2.5 rounded-lg text-[16px] font-medium transition-colors`}
+                                        } text-white py-3 rounded-lg text-[16px] font-medium transition-colors`}
                                     disabled={isLoading}
                                 >
                                     {isLoading ? 'Đang xử lý...' : 'Xác Nhận Đặt Hàng'}

@@ -15,6 +15,7 @@ import passwordRouter from "./routes/password.routes";
 import reviewRoutes from "./routes/reviewRoutes";
 import shippingRoutes from './routes/shipping';
 import warehouseRoutes from './routes/warehouse.routes';
+import discountRoutes from './routes/discount.routes';
 /*------------------------------------
 Dotnev
 --------------------------------------*/
@@ -46,6 +47,7 @@ app.use("/api/password", passwordRouter);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/shipping', shippingRoutes);
 app.use('/api/inventory', warehouseRoutes);
+app.use('/api/discounts', discountRoutes);
 /*------------------------------------
 Start Servers
 --------------------------------------*/

@@ -18,6 +18,13 @@ const getOrderLineTotal = (order) => {
     return unitPrice * quantity;
 };
 
+const getOrderTotalAmount = (order) => {
+    const lineTotal = getOrderLineTotal(order);
+    const shippingFee = Number(order?.shipping_fee ?? 0);
+    const discountAmount = Number(order?.discount_amount ?? 0);
+    return Math.max(0, lineTotal + shippingFee - discountAmount);
+};
+
 const OrderManagement = () => {
     const [orders, setOrders] = useState([]);
     const [error, setError] = useState(null);
@@ -97,6 +104,9 @@ const OrderManagement = () => {
         return <div className="p-6 text-red-600 text-center">{error}</div>;
     }
 
+    // Chỉ hiển thị những đơn đã xác nhận thanh toán
+    const confirmedOrders = orders.filter(order => order.payment_confirmed === true || order.status !== 'pending');
+
     return (
         <div className="p-6 bg-gray-50 min-h-screen">
             <h1 className="text-4xl font-extrabold text-center text-gray-800 mb-10"></h1>
@@ -119,13 +129,13 @@ const OrderManagement = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {orders.map((order) => (
+                        {confirmedOrders.map((order) => (
                             <tr key={order.id} className="border-t hover:bg-gray-50 transition duration-150">
                                 <td className="px-4 py-3">{order.id}</td>
                                 <td className="px-4 py-3 font-medium">{order.full_name}</td>
                                 <td className="px-4 py-3">{order.email}</td>
                                 <td className="px-4 py-3">{order.product_title}</td>
-                                <td className="px-4 py-3 text-green-600 font-semibold">{formatVnd(getOrderLineTotal(order))}đ</td>
+                                <td className="px-4 py-3 text-green-600 font-semibold">{formatVnd(getOrderTotalAmount(order))}đ</td>
                                 <td className="px-4 py-3 font-semibold">{getOrderQuantity(order)}</td>
                                 <td className="px-4 py-3">{order.phone}</td>
                                 <td className="px-4 py-3">{order.address}</td>

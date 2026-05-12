@@ -26,7 +26,7 @@ const asyncHandler = (fn: any) => {
 /*----------------------------------
    Tạo order
 -----------------------------------*/
-router.post('/', asyncHandler(createOrder));
+router.post('/', auth, asyncHandler(createOrder));
 
 /*----------------------------------
    Admin lấy toàn bộ order

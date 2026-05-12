@@ -6,6 +6,13 @@ import crypto from "crypto";
 import { randomUUID } from "crypto";
 import { applyInventoryChange } from '../services/warehouse.service';
 import transporter from '../config/mail';
+import {
+    calculateDiscountAmount,
+    getActiveDiscountByCode,
+    hasUserUsedDiscount,
+    incrementDiscountUsage,
+    normalizeDiscountCode
+} from '../services/discount.service';
 
 const STOCK_DEDUCT_STATUSES = new Set(['confirmed', 'shipping', 'completed']);
 let hasOrdersShippingFeeColumn: boolean | null = null;
@@ -211,13 +218,20 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
             productPrice,
             quantity = 1,
             shippingFee = 0,
+            discountCode = null,
             paymentMethod = "cod",
             returnUrl
         } = req.body;
+        const userId = Number(req.user?.userId || 0);
 
         // Validate
         if (!fullName || !email || !phone || !address || !productId || !productTitle || !productPrice) {
             res.status(400).json({ error: "Thiếu thông tin đơn hàng" });
+            return;
+        }
+
+        if (!userId) {
+            res.status(401).json({ error: 'Không tìm thấy thông tin người dùng' });
             return;
         }
 
@@ -226,6 +240,10 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
         const normalizedShippingFee = Number(shippingFee) || 0;
         const normalizedPaymentMethod = String(paymentMethod || '').toLowerCase();
         const allowedPaymentMethods = new Set(['cod', 'momo', 'vnpay']);
+        const normalizedDiscountCode = normalizeDiscountCode(discountCode);
+        const resolvedDiscountCode = normalizedDiscountCode || null;
+        let resolvedDiscountAmount = 0;
+        let resolvedDiscountId: number | null = null;
 
         if (!allowedPaymentMethods.has(normalizedPaymentMethod)) {
             res.status(400).json({ error: 'Phương thức thanh toán không hợp lệ' });
@@ -235,6 +253,42 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
         if (normalizedProductPrice <= 0 || normalizedQuantity <= 0 || normalizedShippingFee < 0) {
             res.status(400).json({ error: "Dữ liệu tiền đơn hàng không hợp lệ" });
             return;
+        }
+
+        if (normalizedDiscountCode) {
+            const discount = await getActiveDiscountByCode(normalizedDiscountCode);
+
+            if (!discount) {
+                res.status(404).json({ error: 'Mã giảm giá không hợp lệ hoặc đã hết hạn' });
+                return;
+            }
+
+            if (discount.expiry_date && new Date(discount.expiry_date) < new Date()) {
+                res.status(400).json({ error: 'Mã giảm giá đã hết hạn' });
+                return;
+            }
+
+            if (discount.max_uses !== null && Number(discount.current_uses || 0) >= Number(discount.max_uses)) {
+                res.status(400).json({ error: 'Mã giảm giá đã hết lượt sử dụng' });
+                return;
+            }
+
+            const usedBefore = await hasUserUsedDiscount(userId, discount.code);
+            if (usedBefore) {
+                res.status(400).json({ error: 'Bạn đã sử dụng mã giảm giá này rồi' });
+                return;
+            }
+
+            const cartTotal = normalizedProductPrice * normalizedQuantity;
+            if (cartTotal < discount.min_amount) {
+                res.status(400).json({
+                    error: `Mã giảm giá yêu cầu tối thiểu ${discount.min_amount.toLocaleString('vi-VN')} đ`
+                });
+                return;
+            }
+
+            resolvedDiscountAmount = calculateDiscountAmount(discount, cartTotal);
+            resolvedDiscountId = discount.id;
         }
 
         const productCheck = await pool.query(
@@ -268,8 +322,16 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
             return;
         }
 
-        const totalAmount =
-            normalizedProductPrice * normalizedQuantity + normalizedShippingFee;
+        const totalAmount = normalizedProductPrice * normalizedQuantity + normalizedShippingFee - resolvedDiscountAmount;
+
+        // Validate totalAmount
+        if ((normalizedPaymentMethod === 'momo' || normalizedPaymentMethod === 'vnpay') && totalAmount < 1000) {
+            res.status(400).json({ 
+                error: "Số tiền sau giảm giá quá thấp. Số tiền thanh toán phải >= 1000 VND" 
+            });
+            return;
+        }
+
         const supportShippingFeeColumn = await ensureOrdersShippingFeeColumn();
         const onlineInitialStatus = 'pending';
 
@@ -318,10 +380,11 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
             if (supportShippingFeeColumn) {
                 await pool.query(
                     `INSERT INTO orders 
-                    (id, full_name, email, phone, address, product_id, product_title, product_price, quantity, shipping_fee, status, payment_method)
-                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'momo')`,
+                    (id, user_id, full_name, email, phone, address, product_id, product_title, product_price, quantity, shipping_fee, discount_code, discount_amount, payment_confirmed, status, payment_method)
+                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'momo')`,
                     [
                         orderId,
+                        userId,
                         fullName,
                         email,
                         phone,
@@ -331,16 +394,20 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
                         normalizedProductPrice,
                         normalizedQuantity,
                         normalizedShippingFee,
+                        resolvedDiscountCode,
+                        resolvedDiscountAmount,
+                        false,
                         onlineInitialStatus
                     ]
                 );
             } else {
                 await pool.query(
                     `INSERT INTO orders 
-                    (id, full_name, email, phone, address, product_id, product_title, product_price, quantity, status, payment_method)
-                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'momo')`,
+                    (id, user_id, full_name, email, phone, address, product_id, product_title, product_price, quantity, discount_code, discount_amount, payment_confirmed, status, payment_method)
+                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'momo')`,
                     [
                         orderId,
+                        userId,
                         fullName,
                         email,
                         phone,
@@ -349,17 +416,20 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
                         productTitle,
                         normalizedProductPrice,
                         normalizedQuantity,
+                        resolvedDiscountCode,
+                        resolvedDiscountAmount,
+                        false,
                         onlineInitialStatus
                     ]
                 );
             }
 
-            await notifyAdminsNewOrder(
-                email,
-                productTitle,
-                normalizedQuantity,
-                'momo'
-            );
+            if (resolvedDiscountId !== null) {
+                await incrementDiscountUsage(resolvedDiscountId);
+            }
+
+            // ⚠️ KHÔNG gọi notifyAdminsNewOrder ở đây
+            // Chỉ gọi khi callback từ MoMo thành công (momoIPN hoặc momoReturn)
 
             try {
                 // Gọi MoMo
@@ -447,10 +517,11 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
             if (supportShippingFeeColumn) {
                 await pool.query(
                     `INSERT INTO orders
-                    (id, full_name, email, phone, address, product_id, product_title, product_price, quantity, shipping_fee, status, payment_method)
-                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'vnpay')`,
+                    (id, user_id, full_name, email, phone, address, product_id, product_title, product_price, quantity, shipping_fee, discount_code, discount_amount, payment_confirmed, status, payment_method)
+                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'vnpay')`,
                     [
                         orderId,
+                        userId,
                         fullName,
                         email,
                         phone,
@@ -460,16 +531,20 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
                         normalizedProductPrice,
                         normalizedQuantity,
                         normalizedShippingFee,
+                        resolvedDiscountCode || null,
+                        resolvedDiscountAmount,
+                        false,
                         onlineInitialStatus
                     ]
                 );
             } else {
                 await pool.query(
                     `INSERT INTO orders
-                    (id, full_name, email, phone, address, product_id, product_title, product_price, quantity, status, payment_method)
-                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'vnpay')`,
+                    (id, user_id, full_name, email, phone, address, product_id, product_title, product_price, quantity, discount_code, discount_amount, payment_confirmed, status, payment_method)
+                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'vnpay')`,
                     [
                         orderId,
+                        userId,
                         fullName,
                         email,
                         phone,
@@ -478,17 +553,20 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
                         productTitle,
                         normalizedProductPrice,
                         normalizedQuantity,
+                        resolvedDiscountCode || null,
+                        resolvedDiscountAmount,
+                        false,
                         onlineInitialStatus
                     ]
                 );
             }
 
-            await notifyAdminsNewOrder(
-                email,
-                productTitle,
-                normalizedQuantity,
-                'vnpay'
-            );
+            if (resolvedDiscountId !== null) {
+                await incrementDiscountUsage(resolvedDiscountId);
+            }
+
+            // ⚠️ KHÔNG gọi notifyAdminsNewOrder ở đây
+            // Chỉ gọi khi callback từ VNPay thành công (vnpayReturn)
 
             const params: Record<string, string> = {
                 vnp_Version: '2.1.0',
@@ -527,10 +605,11 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
         if (supportShippingFeeColumn) {
             const createdOrder = await pool.query(
                 `INSERT INTO orders 
-                (full_name, email, phone, address, product_id, product_title, product_price, quantity, shipping_fee, status, payment_method)
-                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending','cod')
+                (user_id, full_name, email, phone, address, product_id, product_title, product_price, quantity, shipping_fee, discount_code, discount_amount, payment_confirmed, status, payment_method)
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,true,'pending','cod')
                 RETURNING *`,
                 [
+                    userId,
                     fullName,
                     email,
                     phone,
@@ -539,18 +618,25 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
                     productTitle,
                     normalizedProductPrice,
                     normalizedQuantity,
-                    normalizedShippingFee
+                    normalizedShippingFee,
+                    resolvedDiscountCode || null,
+                    resolvedDiscountAmount
                 ]
             );
+
+            if (resolvedDiscountId !== null) {
+                await incrementDiscountUsage(resolvedDiscountId);
+            }
 
             await trySendOrderConfirmationEmail(createdOrder.rows[0]);
         } else {
             const createdOrder = await pool.query(
                 `INSERT INTO orders 
-                (full_name, email, phone, address, product_id, product_title, product_price, quantity, status, payment_method)
-                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pending','cod')
+                (user_id, full_name, email, phone, address, product_id, product_title, product_price, quantity, discount_code, discount_amount, payment_confirmed, status, payment_method)
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true,'pending','cod')
                 RETURNING *`,
                 [
+                    userId,
                     fullName,
                     email,
                     phone,
@@ -558,9 +644,15 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
                     productId,
                     productTitle,
                     normalizedProductPrice,
-                    normalizedQuantity
+                    normalizedQuantity,
+                    resolvedDiscountCode || null,
+                    resolvedDiscountAmount
                 ]
             );
+
+            if (resolvedDiscountId !== null) {
+                await incrementDiscountUsage(resolvedDiscountId);
+            }
 
             await trySendOrderConfirmationEmail(createdOrder.rows[0]);
         }
@@ -627,9 +719,19 @@ export const momoIPN = async (req: Request, res: Response): Promise<void> => {
                     );
                 }
 
-                // Giữ trạng thái pending để admin xác nhận thủ công sau khi đã thanh toán.
+                // Chỉ chuyển sang pending sau khi thanh toán thành công để đơn online không hiện sớm trong lịch sử.
                 await client.query(
                     `UPDATE orders SET status = 'pending' WHERE id = $1`,
+                    [orderId]
+                );
+
+                await client.query(
+                    `UPDATE orders SET payment_confirmed = TRUE WHERE id = $1`,
+                    [orderId]
+                );
+
+                await client.query(
+                    `UPDATE orders SET payment_confirmed = TRUE WHERE id = $1`,
                     [orderId]
                 );
 
@@ -650,6 +752,13 @@ export const momoIPN = async (req: Request, res: Response): Promise<void> => {
         await client.query('COMMIT');
 
         if (orderForMail) {
+            // ✅ Gọi notifyAdminsNewOrder khi thanh toán MoMo thành công
+            await notifyAdminsNewOrder(
+                orderForMail.email,
+                orderForMail.product_title,
+                orderForMail.quantity,
+                'momo'
+            );
             await trySendOrderConfirmationEmail(orderForMail);
         }
 
@@ -676,6 +785,8 @@ export const momoReturn = async (req: Request, res: Response): Promise<void> => 
         const clientReturnUrl = resolveClientReturnUrl(
             typeof req.query.clientReturnUrl === 'string' ? req.query.clientReturnUrl : undefined
         );
+
+        let orderForNotification: any = null;
 
         await client.query('BEGIN');
 
@@ -712,12 +823,32 @@ export const momoReturn = async (req: Request, res: Response): Promise<void> => 
                     [orderId]
                 );
 
+                await client.query(
+                    `UPDATE orders SET payment_confirmed = TRUE WHERE id = $1`,
+                    [orderId]
+                );
+
+                await client.query(
+                    `UPDATE orders SET payment_confirmed = TRUE WHERE id = $1`,
+                    [orderId]
+                );
+
                 await client.query('COMMIT');
 
-                await trySendOrderConfirmationEmail({
+                orderForNotification = {
                     ...order,
                     status: 'pending'
-                });
+                };
+
+                // ✅ Gọi notifyAdminsNewOrder khi thanh toán MoMo return thành công
+                await notifyAdminsNewOrder(
+                    orderForNotification.email,
+                    orderForNotification.product_title,
+                    orderForNotification.quantity,
+                    'momo'
+                );
+
+                await trySendOrderConfirmationEmail(orderForNotification);
             } else {
                 await client.query(
                     `UPDATE orders
@@ -835,6 +966,16 @@ export const vnpayReturn = async (req: Request, res: Response): Promise<void> =>
                     [orderId]
                 );
 
+                await client.query(
+                    `UPDATE orders SET payment_confirmed = TRUE WHERE id = $1`,
+                    [orderId]
+                );
+
+                await client.query(
+                    `UPDATE orders SET payment_confirmed = TRUE WHERE id = $1`,
+                    [orderId]
+                );
+
                 orderForMail = {
                     ...order,
                     status: 'pending'
@@ -852,6 +993,13 @@ export const vnpayReturn = async (req: Request, res: Response): Promise<void> =>
         await client.query('COMMIT');
 
         if (orderForMail) {
+            // ✅ Gọi notifyAdminsNewOrder khi thanh toán VNPay thành công
+            await notifyAdminsNewOrder(
+                orderForMail.email,
+                orderForMail.product_title,
+                orderForMail.quantity,
+                'vnpay'
+            );
             await trySendOrderConfirmationEmail(orderForMail);
         }
 
@@ -1253,7 +1401,7 @@ export const getUserOrders = async (req: Request, res: Response): Promise<void> 
             `SELECT o.*, p.image AS product_image
              FROM orders o
              LEFT JOIN products p ON p.id = o.product_id
-             WHERE o.email = $1
+             WHERE o.email = $1 AND COALESCE(o.payment_confirmed, true) = true
              ORDER BY o.created_at DESC`,
             [email]
         );
