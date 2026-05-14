@@ -73,6 +73,102 @@ export const getInventoryTransactions = async (req: Request, res: Response): Pro
     }
 };
 
+export const getMonthlyInventoryReport = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const monthParam = typeof req.query.month === 'string' ? req.query.month.trim() : '';
+        const monthPattern = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+        let year: number;
+        let month: number;
+
+        if (monthParam && monthPattern.test(monthParam)) {
+            const [y, m] = monthParam.split('-').map(Number);
+            year = y;
+            month = m;
+        } else {
+            const now = new Date();
+            year = now.getFullYear();
+            month = now.getMonth() + 1;
+        }
+
+        const startDate = new Date(Date.UTC(year, month - 1, 1));
+        const endDate = new Date(Date.UTC(year, month, 1));
+
+        const reportResult = await pool.query(
+            `SELECT
+                p.id AS product_id,
+                p.title,
+                COALESCE(SUM(CASE WHEN it.change_type = 'import' THEN it.quantity_change ELSE 0 END), 0)::int AS imported_quantity,
+                COALESCE(SUM(CASE WHEN it.change_type = 'sale' THEN ABS(it.quantity_change) ELSE 0 END), 0)::int AS sold_quantity,
+                COALESCE(SUM(CASE WHEN it.change_type = 'export' THEN ABS(it.quantity_change) ELSE 0 END), 0)::int AS exported_quantity,
+                (
+                    COALESCE(inv.quantity, 0)
+                    - COALESCE((
+                        SELECT SUM(it_after.quantity_change)
+                        FROM inventory_transactions it_after
+                        WHERE it_after.product_id = p.id
+                          AND it_after.created_at >= $2
+                    ), 0)
+                )::int AS month_ending_stock
+             FROM products p
+             LEFT JOIN product_inventory inv ON inv.product_id = p.id
+             LEFT JOIN inventory_transactions it
+                ON it.product_id = p.id
+               AND it.created_at >= $1
+               AND it.created_at < $2
+             GROUP BY p.id, p.title, inv.quantity
+             ORDER BY p.id DESC`,
+            [startDate.toISOString(), endDate.toISOString()]
+        );
+
+        const byProduct = reportResult.rows.map((row) => ({
+            product_id: Number(row.product_id || 0),
+            title: row.title,
+            imported_quantity: Number(row.imported_quantity || 0),
+            sold_quantity: Number(row.sold_quantity || 0),
+            exported_quantity: Number(row.exported_quantity || 0),
+            month_ending_stock: Number(row.month_ending_stock || 0)
+        }));
+
+        const summary = byProduct.reduce(
+            (acc, item) => {
+                acc.totalImported += item.imported_quantity;
+                acc.totalSold += item.sold_quantity;
+                acc.totalManualExport += item.exported_quantity;
+                acc.totalEndingStock += item.month_ending_stock;
+
+                if (item.imported_quantity > 0 || item.sold_quantity > 0 || item.exported_quantity > 0) {
+                    acc.productsWithMovement += 1;
+                }
+
+                return acc;
+            },
+            {
+                totalImported: 0,
+                totalSold: 0,
+                totalManualExport: 0,
+                totalEndingStock: 0,
+                productsWithMovement: 0
+            }
+        );
+
+        const monthText = `${year}-${String(month).padStart(2, '0')}`;
+
+        res.json({
+            month: monthText,
+            period: {
+                from: startDate.toISOString(),
+                to: endDate.toISOString()
+            },
+            summary,
+            byProduct
+        });
+    } catch (error) {
+        console.error('Lỗi khi lấy báo cáo kho theo tháng:', error);
+        res.status(500).json({ error: 'Lỗi khi lấy báo cáo kho theo tháng' });
+    }
+};
+
 export const importInventory = async (req: Request, res: Response): Promise<void> => {
     const { productId, quantity, reason } = req.body;
 

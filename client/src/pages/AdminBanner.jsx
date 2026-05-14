@@ -163,16 +163,16 @@ export default function AdminBanner() {
       </div>
 
       {/* Banner table */}
-      <table className="w-full bg-white rounded shadow text-sm">
+      <table className="w-full table-fixed bg-white rounded shadow text-sm">
 
         <thead className="bg-slate-100 text-slate-600 font-medium">
 
           <tr>
-            <th className="p-3 font-medium">ID</th>
-            <th className="p-3 font-medium">Banner</th>
-            <th className="p-3 font-medium">Tên ảnh</th>
-            <th className="p-3 font-medium">Loại</th>
-            <th className="p-3 font-medium">Hành động</th>
+            <th className="w-16 p-3 font-medium">ID</th>
+            <th className="w-[48%] p-3 font-medium">Banner</th>
+            <th className="w-[18%] p-3 font-medium">Tên ảnh</th>
+            <th className="w-[16%] p-3 font-medium">Loại</th>
+            <th className="w-[12%] p-3 font-medium">Hành động</th>
           </tr>
 
         </thead>
@@ -181,18 +181,21 @@ export default function AdminBanner() {
 
           {banners.map((banner) => (
 
-            <tr key={banner.id} className="border-t text-center">
+            <tr key={banner.id} className="border-t text-center align-middle">
 
               <td className="p-3">{banner.id}</td>
 
               <td className="p-3">
-                <img
-                  src={resolveBannerSrc(banner.image_url)}
-                  className="h-16 mx-auto"
-                />
+                <div className="mx-auto flex h-20 w-full items-center justify-center overflow-hidden rounded bg-slate-50 px-2">
+                  <img
+                    src={resolveBannerSrc(banner.image_url)}
+                    className="max-h-full max-w-full object-contain"
+                    alt={toDisplayImageUrl(banner.image_url)}
+                  />
+                </div>
               </td>
 
-              <td className="p-3">
+              <td className="p-3 break-all">
                 {toDisplayImageUrl(banner.image_url)}
               </td>
 
@@ -205,21 +208,21 @@ export default function AdminBanner() {
               </td>
 
               <td className="p-3">
+                <div className="flex flex-col items-center gap-2">
+                  <button
+                    onClick={() => startEdit(banner)}
+                    className="w-14 rounded border border-gray-500 px-3 py-1 text-sm text-gray-700 transition hover:bg-gray-100"
+                  >
+                    Sửa
+                  </button>
 
-                <button
-                  onClick={() => startEdit(banner)}
-                  className="rounded border border-gray-500 px-3 py-1 mr-2 text-sm text-gray-700 transition hover:bg-gray-100"
-                >
-                  Sửa
-                </button>
-
-                <button
-                  onClick={() => deleteBanner(banner.id)}
-                  className="rounded border border-red-500 px-3 py-1 text-sm text-red-500 transition hover:bg-red-50"
-                >
-                  Xóa
-                </button>
-
+                  <button
+                    onClick={() => deleteBanner(banner.id)}
+                    className="w-14 rounded border border-red-500 px-3 py-1 text-sm text-red-500 transition hover:bg-red-50"
+                  >
+                    Xóa
+                  </button>
+                </div>
               </td>
 
             </tr>

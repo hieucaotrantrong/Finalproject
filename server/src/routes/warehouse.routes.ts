@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { adminAuth } from '../middleware/adminAuth';
 import {
     exportInventory,
+    getMonthlyInventoryReport,
     getInventorySummary,
     getInventoryTransactions,
     importInventory
@@ -17,6 +18,7 @@ const asyncHandler = (fn: any) => {
 
 router.get('/', adminAuth, asyncHandler(getInventorySummary));
 router.get('/transactions', adminAuth, asyncHandler(getInventoryTransactions));
+router.get('/monthly-report', adminAuth, asyncHandler(getMonthlyInventoryReport));
 router.post('/import', adminAuth, asyncHandler(importInventory));
 router.post('/export', adminAuth, asyncHandler(exportInventory));
 

@@ -3,6 +3,20 @@ import axios from 'axios';
 
 const API_BASE = 'http://localhost:5000/api/inventory';
 
+const getCurrentMonthValue = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
+};
+
+const formatMonthLabel = (value) => {
+    if (!value) return 'Tháng hiện tại';
+    const [year, month] = String(value).split('-').map(Number);
+    if (!Number.isFinite(year) || !Number.isFinite(month)) return value;
+    return `Tháng ${month}/${year}`;
+};
+
 const formatNumber = (value) => {
     const num = Number(value || 0);
     return Number.isFinite(num) ? num.toLocaleString('vi-VN') : '0';
@@ -65,6 +79,19 @@ const WarehouseManagement = () => {
     });
     const [mode, setMode] = useState('import');
     const [selectedProductFilter, setSelectedProductFilter] = useState('');
+    const [reportMonth, setReportMonth] = useState(getCurrentMonthValue());
+    const [reportLoading, setReportLoading] = useState(false);
+    const [monthlyReport, setMonthlyReport] = useState({
+        month: getCurrentMonthValue(),
+        summary: {
+            totalImported: 0,
+            totalSold: 0,
+            totalManualExport: 0,
+            totalEndingStock: 0,
+            productsWithMovement: 0
+        },
+        byProduct: []
+    });
 
     const token = localStorage.getItem('token');
 
@@ -120,6 +147,41 @@ const WarehouseManagement = () => {
         }
     };
 
+    const fetchMonthlyReport = async (monthValue, { silent = false } = {}) => {
+        if (!silent) {
+            setReportLoading(true);
+        }
+
+        try {
+            const response = await axios.get(`${API_BASE}/monthly-report`, {
+                headers,
+                params: monthValue ? { month: monthValue } : undefined
+            });
+
+            const payload = response.data || {};
+            setMonthlyReport({
+                month: payload.month || monthValue,
+                summary: {
+                    totalImported: Number(payload.summary?.totalImported || 0),
+                    totalSold: Number(payload.summary?.totalSold || 0),
+                    totalManualExport: Number(payload.summary?.totalManualExport || 0),
+                    totalEndingStock: Number(payload.summary?.totalEndingStock || 0),
+                    productsWithMovement: Number(payload.summary?.productsWithMovement || 0)
+                },
+                byProduct: Array.isArray(payload.byProduct) ? payload.byProduct : []
+            });
+        } catch (err) {
+            console.error('Lỗi lấy báo cáo kho theo tháng:', err);
+            if (!silent) {
+                setError('Không thể tải báo cáo kho theo tháng');
+            }
+        } finally {
+            if (!silent) {
+                setReportLoading(false);
+            }
+        }
+    };
+
     useEffect(() => {
         if (!token) {
             setError('Bạn cần đăng nhập admin để quản lý kho');
@@ -128,6 +190,7 @@ const WarehouseManagement = () => {
 
         fetchInventory();
         fetchTransactions(selectedProductFilter);
+        fetchMonthlyReport(reportMonth);
 
         const intervalId = setInterval(() => {
             if (document.hidden) {
@@ -139,7 +202,7 @@ const WarehouseManagement = () => {
         }, 1000);
 
         return () => clearInterval(intervalId);
-    }, [token, selectedProductFilter]);
+    }, [token, selectedProductFilter, reportMonth]);
 
     const submitInventoryAction = async () => {
         const productId = Number(form.productId);
@@ -174,6 +237,7 @@ const WarehouseManagement = () => {
             setForm((prev) => ({ ...prev, quantity: '', reason: '' }));
             await fetchInventory();
             await fetchTransactions(selectedProductFilter || '');
+            await fetchMonthlyReport(reportMonth, { silent: true });
         } catch (err) {
             console.error('Lỗi thao tác kho:', err);
             setError(err?.response?.data?.error || 'Không thể cập nhật kho');
@@ -242,6 +306,91 @@ const WarehouseManagement = () => {
 
                 {message && <p className="mt-3 text-sm font-medium text-green-600">{message}</p>}
                 {error && <p className="mt-3 text-sm font-medium text-red-600">{error}</p>}
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h3 className="text-lg font-semibold text-slate-800">Tổng kết kho theo tháng</h3>
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="month"
+                            value={reportMonth}
+                            onChange={(e) => setReportMonth(e.target.value || getCurrentMonthValue())}
+                            className="rounded border border-slate-300 px-3 py-1.5 text-sm"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => fetchMonthlyReport(reportMonth)}
+                            className="rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                        >
+                            Làm mới
+                        </button>
+                    </div>
+                </div>
+
+                <p className="mt-2 text-sm text-slate-600">Báo cáo: {formatMonthLabel(monthlyReport.month)}</p>
+
+                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                        <p className="text-xs font-semibold uppercase text-emerald-700">Tổng nhập</p>
+                        <p className="mt-1 text-xl font-bold text-emerald-800">{formatNumber(monthlyReport.summary.totalImported)}</p>
+                    </div>
+                    <div className="rounded-lg border border-rose-200 bg-rose-50 p-3">
+                        <p className="text-xs font-semibold uppercase text-rose-700">Tổng bán</p>
+                        <p className="mt-1 text-xl font-bold text-rose-800">{formatNumber(monthlyReport.summary.totalSold)}</p>
+                    </div>
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                        <p className="text-xs font-semibold uppercase text-amber-700">Xuất thủ công</p>
+                        <p className="mt-1 text-xl font-bold text-amber-800">{formatNumber(monthlyReport.summary.totalManualExport)}</p>
+                    </div>
+                    <div className="rounded-lg border border-sky-200 bg-sky-50 p-3">
+                        <p className="text-xs font-semibold uppercase text-sky-700">Tồn cuối tháng</p>
+                        <p className="mt-1 text-xl font-bold text-sky-800">{formatNumber(monthlyReport.summary.totalEndingStock)}</p>
+                    </div>
+                </div>
+
+                <p className="mt-3 text-sm text-slate-600">
+                    Sản phẩm có biến động trong tháng: <span className="font-semibold">{formatNumber(monthlyReport.summary.productsWithMovement)}</span>
+                </p>
+
+                <div className="mt-4 overflow-x-auto">
+                    <table className="min-w-full border border-slate-200 text-sm">
+                        <thead className="bg-slate-50 text-left text-xs uppercase text-slate-600">
+                            <tr>
+                                <th className="px-3 py-2">Sản phẩm</th>
+                                <th className="px-3 py-2">Nhập trong tháng</th>
+                                <th className="px-3 py-2">Bán trong tháng</th>
+                                <th className="px-3 py-2">Xuất thủ công</th>
+                                <th className="px-3 py-2">Tồn cuối tháng</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {reportLoading ? (
+                                <tr>
+                                    <td colSpan={5} className="px-3 py-6 text-center text-slate-500">
+                                        Đang tải báo cáo tháng...
+                                    </td>
+                                </tr>
+                            ) : monthlyReport.byProduct.length === 0 ? (
+                                <tr>
+                                    <td colSpan={5} className="px-3 py-6 text-center text-slate-500">
+                                        Chưa có dữ liệu báo cáo kho
+                                    </td>
+                                </tr>
+                            ) : (
+                                monthlyReport.byProduct.map((item) => (
+                                    <tr key={item.product_id} className="border-t border-slate-200">
+                                        <td className="px-3 py-2">{item.title}</td>
+                                        <td className="px-3 py-2 text-emerald-700">{formatNumber(item.imported_quantity)}</td>
+                                        <td className="px-3 py-2 text-rose-700">{formatNumber(item.sold_quantity)}</td>
+                                        <td className="px-3 py-2 text-amber-700">{formatNumber(item.exported_quantity)}</td>
+                                        <td className="px-3 py-2 font-semibold text-slate-900">{formatNumber(item.month_ending_stock)}</td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">

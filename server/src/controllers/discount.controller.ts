@@ -74,7 +74,7 @@ export const createDiscount = async (req: Request, res: Response): Promise<void>
 
         const created = result.rows[0];
 
-        // Send notification emails to customers (best-effort, non-blocking for client)
+        // Gửi thông báo cho khách hàng
         if (notifyCustomers) {
             (async () => {
                 try {
@@ -101,13 +101,13 @@ export const createDiscount = async (req: Request, res: Response): Promise<void>
                         console.error('❌ [BACKEND] Lỗi khi tạo in-app notifications:', err);
                     }
 
-                    // send emails in parallel with small batches
+                    // Gửi email thông báo mã giảm giá mới cho tất cả người dùng có email 
                     const sendPromises = users.map((u: any) => {
                         const to = u.email;
                         const name = u.first_name || '';
                         const html = `
                             <p>Xin chào ${name},</p>
-                            <p>Chúng tôi vừa tạo mã giảm giá <strong>${created.code}</strong> — <strong>${valueText}</strong>.</p>
+                            <p>Bạn đã nhận được voucher TDDD<strong>${created.code}</strong> — <strong>${valueText}</strong>.</p>
                             <ul>
                               <li>Yêu cầu tối thiểu: ${Number(created.min_amount || 0).toLocaleString('vi-VN')} đ</li>
                               <li>Hạn dùng: ${expiryText}</li>

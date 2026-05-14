@@ -228,7 +228,7 @@ const CartPayPage = () => {
                 }
             );
             setDiscountInfo(response.data);
-            setDiscountMessage(`✅ Áp dụng mã giảm giá thành công! Tiết kiệm ${formatPrice(response.data.discount_amount)}₫`);
+            setDiscountMessage(` Áp dụng mã giảm giá thành công! Tiết kiệm ${formatPrice(response.data.discount_amount)}₫`);
         } catch (err) {
             const errorMsg = err?.response?.data?.error || "Lỗi xác minh mã giảm giá";
             setDiscountMessage(errorMsg);
@@ -754,7 +754,7 @@ const CartPayPage = () => {
                                         <button
                                             onClick={verifyDiscount}
                                             disabled={discountLoading || !discountCode.trim()}
-                                            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white rounded-md text-[14px] font-medium transition-colors"
+                                            className="px-4 py-1.5 bg-white text-red-700 border border-yellow-300 rounded text-sm hover:bg-blue-50 shadow-sm"
                                         >
                                             {discountLoading ? "..." : "Áp dụng"}
                                         </button>
