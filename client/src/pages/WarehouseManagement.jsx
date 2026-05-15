@@ -330,24 +330,43 @@ const WarehouseManagement = () => {
 
                 <p className="mt-2 text-sm text-slate-600">Báo cáo: {formatMonthLabel(monthlyReport.month)}</p>
 
-                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
-                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-                        <p className="text-xs font-semibold uppercase text-emerald-700">Tổng nhập</p>
-                        <p className="mt-1 text-xl font-bold text-emerald-800">{formatNumber(monthlyReport.summary.totalImported)}</p>
-                    </div>
-                    <div className="rounded-lg border border-rose-200 bg-rose-50 p-3">
-                        <p className="text-xs font-semibold uppercase text-rose-700">Tổng bán</p>
-                        <p className="mt-1 text-xl font-bold text-rose-800">{formatNumber(monthlyReport.summary.totalSold)}</p>
-                    </div>
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-                        <p className="text-xs font-semibold uppercase text-amber-700">Xuất thủ công</p>
-                        <p className="mt-1 text-xl font-bold text-amber-800">{formatNumber(monthlyReport.summary.totalManualExport)}</p>
-                    </div>
-                    <div className="rounded-lg border border-sky-200 bg-sky-50 p-3">
-                        <p className="text-xs font-semibold uppercase text-sky-700">Tồn cuối tháng</p>
-                        <p className="mt-1 text-xl font-bold text-sky-800">{formatNumber(monthlyReport.summary.totalEndingStock)}</p>
-                    </div>
-                </div>
+             <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
+    <div className="rounded-lg border border-gray-300 bg-white p-3">
+        <p className="text-xs font-semibold uppercase text-gray-600">
+            Tổng nhập
+        </p>
+        <p className="mt-1 text-xl font-bold text-black">
+            {formatNumber(monthlyReport.summary.totalImported)}
+        </p>
+    </div>
+
+    <div className="rounded-lg border border-gray-300 bg-white p-3">
+        <p className="text-xs font-semibold uppercase text-gray-600">
+            Tổng bán
+        </p>
+        <p className="mt-1 text-xl font-bold text-black">
+            {formatNumber(monthlyReport.summary.totalSold)}
+        </p>
+    </div>
+
+    <div className="rounded-lg border border-gray-300 bg-white p-3">
+        <p className="text-xs font-semibold uppercase text-gray-600">
+            Xuất thủ công
+        </p>
+        <p className="mt-1 text-xl font-bold text-black">
+            {formatNumber(monthlyReport.summary.totalManualExport)}
+        </p>
+    </div>
+
+    <div className="rounded-lg border border-gray-300 bg-white p-3">
+        <p className="text-xs font-semibold uppercase text-gray-600">
+            Tồn cuối tháng
+        </p>
+        <p className="mt-1 text-xl font-bold text-black">
+            {formatNumber(monthlyReport.summary.totalEndingStock)}
+        </p>
+    </div>
+</div>
 
                 <p className="mt-3 text-sm text-slate-600">
                     Sản phẩm có biến động trong tháng: <span className="font-semibold">{formatNumber(monthlyReport.summary.productsWithMovement)}</span>

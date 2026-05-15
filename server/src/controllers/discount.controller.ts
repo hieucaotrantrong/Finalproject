@@ -10,17 +10,15 @@ import {
 /*----------------------------------
 Get all discount codes
 -----------------------------------*/
-export const getAllDiscounts = async (req: Request, res: Response): Promise<void> => {
+export const getAllDiscounts = async (_req: Request, res: Response): Promise<void> => {
     try {
-        console.log('📍 [BACKEND] GET /api/discounts called');
         const result = await pool.query(`
             SELECT * FROM discounts
             ORDER BY created_at DESC
         `);
-        console.log(`✅ [BACKEND] Found ${result.rows.length} discounts`);
         res.json(result.rows || []);
     } catch (err) {
-        console.error('❌ [BACKEND] Lỗi khi lấy mã giảm giá:', err);
+       
         res.status(500).json({ error: 'Lỗi khi lấy mã giảm giá' });
     }
 };
@@ -81,13 +79,13 @@ export const createDiscount = async (req: Request, res: Response): Promise<void>
                     const usersRes = await pool.query(`SELECT email, first_name FROM users WHERE email IS NOT NULL AND email <> ''`);
                     const users = usersRes.rows || [];
 
-                    const subject = `Mã giảm giá mới: ${created.code} - Ưu đãi trong thời gian có hạn`;
+                    const subject = `Mã giảm giá mới nhanh tay nhập ngay: ${created.code} - Ưu đãi trong thời gian có hạn`;
                     const expiryText = created.expiry_date ? new Date(created.expiry_date).toLocaleDateString('vi-VN') : 'Không giới hạn';
                     const valueText = created.discount_type === 'percentage' ? `${created.discount_value}%` : `${Number(created.discount_value).toLocaleString('vi-VN')} đ`;
                     
                     // Insert in-app notifications for all users (so they see it in the app)
                     try {
-                        const notifTitle = `Mã giảm giá mới: ${created.code}`;
+                        const notifTitle = `Mã giảm giá mới nhanh tay nhập ngay: ${created.code}`;
                         const notifMessage = `Ưu đãi ${valueText} - Hạn dùng: ${expiryText} - Yêu cầu tối thiểu: ${Number(created.min_amount || 0).toLocaleString('vi-VN')} đ`;
                         await pool.query(
                             `INSERT INTO notifications (user_email, title, message, is_read)
@@ -96,9 +94,8 @@ export const createDiscount = async (req: Request, res: Response): Promise<void>
                              WHERE email IS NOT NULL AND email <> ''`,
                             [notifTitle, notifMessage]
                         );
-                        console.log(`✅ [BACKEND] Created in-app notifications for users`);
                     } catch (err) {
-                        console.error('❌ [BACKEND] Lỗi khi tạo in-app notifications:', err);
+                      
                     }
 
                     // Gửi email thông báo mã giảm giá mới cho tất cả người dùng có email 
@@ -132,10 +129,8 @@ export const createDiscount = async (req: Request, res: Response): Promise<void>
                     for (let i = 0; i < sendPromises.length; i += BATCH) {
                         await Promise.all(sendPromises.slice(i, i + BATCH));
                     }
-
-                    console.log(`✅ [BACKEND] Sent discount notification emails to ${users.length} users`);
                 } catch (err) {
-                    console.error('❌ [BACKEND] Lỗi khi gửi thông báo mã giảm giá:', err);
+                  
                 }
             })();
         }
@@ -253,8 +248,7 @@ export const verifyDiscount = async (req: Request, res: Response): Promise<void>
         // Calculate discount amount
         const discountAmount = calculateDiscountAmount(discount, cartTotal);
 
-        // ⚠️ QUAN TRỌNG: Chỉ trả về thông tin, KHÔNG tăng current_uses
-        // current_uses sẽ được tăng khi đơn hàng được tạo thành công (createOrder)
+      
         res.json({
             code: discount.code,
             discount_type: discount.discount_type,
