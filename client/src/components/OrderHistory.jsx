@@ -5,6 +5,7 @@ import { FaBox, FaTruck, FaCheckCircle, FaClock, FaTimesCircle, FaCalendarAlt, F
 import Home from './Home';
 import Footers from './Footers';
 import Carousel from './Carousel';
+import { connectSocket, onProductEvent, offProductEvent } from '../utils/socket';
 
 const SIDE_PREFIX = "side::";
 const isSideBanner = (imageUrl = "") => imageUrl.startsWith(SIDE_PREFIX);
@@ -87,6 +88,24 @@ const OrderHistory = () => {
         };
         window.addEventListener('storage', handleStorageChange);
         return () => window.removeEventListener('storage', handleStorageChange);
+    }, []);
+
+    useEffect(() => {
+        connectSocket();
+
+        const handleOrderChanged = (data) => {
+            const currentUserEmail = localStorage.getItem('userEmail') || JSON.parse(localStorage.getItem('user') || '{}')?.email;
+
+            if (!data?.email || !currentUserEmail || String(data.email).toLowerCase() === String(currentUserEmail).toLowerCase()) {
+                fetchUserOrders();
+            }
+        };
+
+        onProductEvent('orderChanged', handleOrderChanged);
+
+        return () => {
+            offProductEvent('orderChanged');
+        };
     }, []);
 
     useEffect(() => {

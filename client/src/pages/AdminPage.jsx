@@ -11,6 +11,7 @@ import AdminBanner from './AdminBanner';
 import Notifications from '../components/Notifications';
 import WarehouseManagement from './WarehouseManagement';
 import DiscountManagement from './DiscountManagement';
+import { emitProductEvent, connectSocket } from '../utils/socket';
 
 const SIDE_PREFIX = 'side::';
 const TOP_PREFIX = 'top::';
@@ -185,6 +186,19 @@ const handleSubmit = async (e) => {
         } else {
             await axios.post('http://localhost:5000/api/products', formData);
             showPopup('Thêm sản phẩm thành công!', 'success');
+
+                // Emit socket event để client khác nhận được update
+                if (editingProduct) {
+                    emitProductEvent('productUpdated', { 
+                        product: formData, 
+                        message: `🔄 Admin vừa cập nhật sản phẩm: ${formData.title}` 
+                    });
+                } else {
+                    emitProductEvent('productAdded', { 
+                        product: formData, 
+                        message: `✅ Admin vừa thêm sản phẩm mới: ${formData.title}` 
+                    });
+                }
         }
 
         // reset form (QUAN TRỌNG: phải có images)
@@ -215,6 +229,11 @@ setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
                 await axios.delete(`http://localhost:5000/api/products/${id}`);
                 fetchProducts();
                 showPopup(' Đã xoá sản phẩm thành công!', 'success');
+                            // Emit socket event
+                            emitProductEvent('productDeleted', { 
+                                productId: id, 
+                                message: `🗑️ Admin vừa xóa sản phẩm` 
+                            });
             } catch (error) {
                 console.error('Lỗi khi xoá sản phẩm:', error);
                 showPopup(' Lỗi khi xoá sản phẩm!', 'error');
@@ -231,6 +250,12 @@ setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
             });
             fetchProducts();
             showPopup(nextStatus ? 'Đã chuyển sản phẩm sang Hết hàng' : 'Đã mở bán lại sản phẩm', 'success');
+                    // Emit socket event
+                    emitProductEvent('stockStatusChanged', { 
+                        productId: id, 
+                        is_out_of_stock: nextStatus,
+                        message: nextStatus ? '⚠️ Sản phẩm hết hàng' : '✅ Sản phẩm có hàng lại'
+                    });
         } catch (error) {
             console.error('Lỗi khi cập nhật trạng thái hết hàng:', error);
             showPopup('Không thể cập nhật trạng thái hết hàng', 'error');

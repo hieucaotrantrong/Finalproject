@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { IoMdNotifications } from 'react-icons/io';
 import axios from 'axios';
+import { connectSocket, onProductEvent, offProductEvent } from '../utils/socket';
 
 const Notifications = () => {
     const [notifications, setNotifications] = useState([]);
@@ -39,8 +40,21 @@ const Notifications = () => {
 
     useEffect(() => {
         fetchNotifications();
-        const interval = setInterval(fetchNotifications, 10000);
-        return () => clearInterval(interval);
+        return undefined;
+    }, []);
+
+    useEffect(() => {
+        connectSocket();
+
+        const handleOrderChanged = () => {
+            fetchNotifications();
+        };
+
+        onProductEvent('orderChanged', handleOrderChanged);
+
+        return () => {
+            offProductEvent('orderChanged');
+        };
     }, []);
 
     useEffect(() => {

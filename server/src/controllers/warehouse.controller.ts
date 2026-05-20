@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
 import { applyInventoryChange, ensureInventoryRow } from '../services/warehouse.service';
+import { io } from '../index';
 
 const getActorId = (req: Request): number | null => {
     const parsed = Number(req.user?.userId);
@@ -212,6 +213,14 @@ export const importInventory = async (req: Request, res: Response): Promise<void
 
         await client.query('COMMIT');
 
+        // Emit socket event để client cập nhật realtime
+        io.emit('stockStatusChanged', {
+            productId: normalizedProductId,
+            is_out_of_stock: quantityAfter <= 0,
+            stock_quantity: quantityAfter,
+            message: quantityAfter <= 0 ? '⚠️ Sản phẩm hết hàng' : '✅ Sản phẩm có hàng lại'
+        });
+
         res.json({
             success: true,
             message: 'Nhập kho thành công',
@@ -269,6 +278,14 @@ export const exportInventory = async (req: Request, res: Response): Promise<void
         });
 
         await client.query('COMMIT');
+
+        // Emit socket event để client cập nhật realtime
+        io.emit('stockStatusChanged', {
+            productId: normalizedProductId,
+            is_out_of_stock: quantityAfter <= 0,
+            stock_quantity: quantityAfter,
+            message: quantityAfter <= 0 ? '⚠️ Sản phẩm hết hàng' : '✅ Sản phẩm có hàng lại'
+        });
 
         res.json({
             success: true,
@@ -329,6 +346,14 @@ export const adjustInventory = async (req: Request, res: Response): Promise<void
         });
 
         await client.query('COMMIT');
+
+        // Emit socket event để client cập nhật realtime
+        io.emit('stockStatusChanged', {
+            productId: normalizedProductId,
+            is_out_of_stock: quantityAfter <= 0,
+            stock_quantity: quantityAfter,
+            message: quantityAfter <= 0 ? '⚠️ Sản phẩm hết hàng' : '✅ Sản phẩm có hàng lại'
+        });
 
         res.json({
             success: true,

@@ -13,6 +13,7 @@ import {
     incrementDiscountUsage,
     normalizeDiscountCode
 } from '../services/discount.service';
+import { io } from '../index';
 
 const STOCK_DEDUCT_STATUSES = new Set(['confirmed', 'shipping', 'completed']);
 let hasOrdersShippingFeeColumn: boolean | null = null;
@@ -202,6 +203,10 @@ const notifyAdminsNewOrder = async (
          FROM unnest($3::text[]) AS email`,
         [title, message, adminEmails]
     );
+};
+
+const emitOrderChanged = (payload: Record<string, any>): void => {
+    io.emit('orderChanged', payload);
 };
 /*-----------------------------------------
 Create Order (COD + MoMo)
@@ -664,6 +669,16 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
             'cod'
         );
 
+        emitOrderChanged({
+            action: 'created',
+            orderId: null,
+            email,
+            productTitle,
+            quantity: normalizedQuantity,
+            paymentMethod: 'cod',
+            message: `Đơn hàng mới từ ${email}: ${productTitle}`
+        });
+
         res.json({
             message: "Đặt hàng thành công (COD)",
             paymentMethod: "cod"
@@ -739,6 +754,16 @@ export const momoIPN = async (req: Request, res: Response): Promise<void> => {
                     ...order,
                     status: 'pending'
                 };
+
+                emitOrderChanged({
+                    action: 'created',
+                    orderId: orderId,
+                    email: orderForMail.email,
+                    productTitle: orderForMail.product_title,
+                    quantity: orderForMail.quantity,
+                    paymentMethod: 'momo',
+                    message: `Đơn hàng mới từ ${orderForMail.email}: ${orderForMail.product_title}`
+                });
             }
         } else {
             await client.query(
@@ -747,6 +772,14 @@ export const momoIPN = async (req: Request, res: Response): Promise<void> => {
                  WHERE id = $1`,
                 [orderId]
             );
+
+            emitOrderChanged({
+                action: 'cancelled',
+                orderId: String(orderId),
+                email: null,
+                status: 'cancelled',
+                message: `MoMo IPN báo đơn ${orderId} đã bị hủy`
+            });
         }
 
         await client.query('COMMIT');
@@ -857,6 +890,14 @@ export const momoReturn = async (req: Request, res: Response): Promise<void> => 
                     [orderId]
                 );
                 await client.query('COMMIT');
+
+                emitOrderChanged({
+                    action: 'cancelled',
+                    orderId,
+                    email: order.email,
+                    status: 'cancelled',
+                    message: `Đơn hàng ${orderId} đã bị hủy`
+                });
             }
         } else {
             await client.query('COMMIT');
@@ -980,6 +1021,16 @@ export const vnpayReturn = async (req: Request, res: Response): Promise<void> =>
                     ...order,
                     status: 'pending'
                 };
+
+                emitOrderChanged({
+                    action: 'created',
+                    orderId: orderId,
+                    email: orderForMail.email,
+                    productTitle: orderForMail.product_title,
+                    quantity: orderForMail.quantity,
+                    paymentMethod: 'momo',
+                    message: `Đơn hàng mới từ ${orderForMail.email}: ${orderForMail.product_title}`
+                });
             } else {
                 await client.query(
                     `UPDATE orders
@@ -1245,6 +1296,23 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
 
         await client.query('COMMIT');
 
+        io.emit('orderStatusUpdated', {
+            orderId: Number(id),
+            email: order.email,
+            status,
+            productTitle: order.product_title,
+            message: `Đơn hàng #${id} đã được cập nhật sang trạng thái: ${status}`
+        });
+
+        emitOrderChanged({
+            action: 'updated',
+            orderId: Number(id),
+            email: order.email,
+            status,
+            productTitle: order.product_title,
+                    paymentMethod: 'vnpay',
+        });
+
         res.json({
             success: true,
             message: "Cập nhật trạng thái thành công",
@@ -1325,6 +1393,14 @@ export const cancelUserOrder = async (req: Request, res: Response): Promise<void
             ]
         );
 
+        emitOrderChanged({
+            action: 'cancelled',
+            orderId: Number(id),
+            email: userEmail,
+            productTitle: order.product_title,
+            message: `Khách hàng đã hủy đơn #${id}`
+        });
+
         res.json({ message: 'Hủy đơn hàng thành công' });
     } catch (error) {
         console.error('Lỗi khi user hủy đơn:', error);
@@ -1382,6 +1458,14 @@ export const deleteUserOrder = async (req: Request, res: Response): Promise<void
             `DELETE FROM orders WHERE id = $1`,
             [id]
         );
+
+        emitOrderChanged({
+            action: 'deleted',
+            orderId: Number(id),
+            email: userEmail,
+            productTitle: order.product_title,
+            message: `Khách hàng đã xóa đơn #${id}`
+        });
 
         res.json({ message: 'Xóa đơn hàng thành công' });
     } catch (error) {

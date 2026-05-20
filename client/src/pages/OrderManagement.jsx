@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { connectSocket, onProductEvent, offProductEvent } from '../utils/socket';
 
 const formatVnd = (value) => {
     const num = Number(String(value ?? 0).replace(/[^\d.-]/g, ''));
@@ -32,6 +33,20 @@ const OrderManagement = () => {
     -----------------------------------*/
     useEffect(() => {
         fetchOrders();
+    }, []);
+
+    useEffect(() => {
+        connectSocket();
+
+        const handleOrderChanged = () => {
+            fetchOrders();
+        };
+
+        onProductEvent('orderChanged', handleOrderChanged);
+
+        return () => {
+            offProductEvent('orderChanged');
+        };
     }, []);
     /*----------------------------------
     Get all product

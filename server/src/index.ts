@@ -16,6 +16,8 @@ import reviewRoutes from "./routes/reviewRoutes";
 import shippingRoutes from './routes/shipping';
 import warehouseRoutes from './routes/warehouse.routes';
 import discountRoutes from './routes/discount.routes';
+import http from 'http';
+import { Server } from 'socket.io';
 /*------------------------------------
 Dotnev
 --------------------------------------*/
@@ -23,6 +25,31 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+/*------------------------------------
+Create HTTP Server for Socket.io
+--------------------------------------*/
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: ["http://localhost:5173", "http://localhost:5174"],
+        methods: ["GET", "POST"]
+    }
+});
+
+/*------------------------------------
+Socket.io Events
+--------------------------------------*/
+io.on('connection', (socket) => {
+    console.log(' Client connected:', socket.id);
+
+    socket.on('disconnect', () => {
+        console.log(' Client disconnected:', socket.id);
+    });
+});
+
+// Export io để dùng ở routes
+export { io };
 
 /*------------------------------------
 Middleware
@@ -51,8 +78,9 @@ app.use('/api/discounts', discountRoutes);
 /*------------------------------------
 Start Servers
 --------------------------------------*/
-app.listen(PORT, () => {
-    console.log(`Server is listening on port ${PORT}`);
+server.listen(PORT, () => {
+    console.log(`✅ Server is listening on port ${PORT}`);
+    console.log(`🔌 Socket.io ready on ws://localhost:${PORT}`);
 });
 
 /*------------------------------------

@@ -4,6 +4,8 @@ import CartItem from "./CartItem";
 import Carousel from "./Carousel";
 import FlashSale from "./FlashSale";
 
+import { connectSocket, onProductEvent } from "../utils/socket";
+import { toast } from 'react-toastify';
 const productsMock = [];
 
 const CartPage = ({ searchQuery = '', categoryFilter = '' }) => {
@@ -36,6 +38,45 @@ const CartPage = ({ searchQuery = '', categoryFilter = '' }) => {
         }, 1000);
 
         return () => clearInterval(intervalId);
+    }, []);
+
+    // Initial fetch only
+    useEffect(() => {
+        fetchProducts();
+    }, []);
+
+    // Listen to real-time product updates from admin
+    useEffect(() => {
+        connectSocket();
+
+        // When admin adds product
+        onProductEvent('productAdded', (data) => {
+            console.log('✅ Sản phẩm mới:', data);
+            fetchProducts();
+            if (data.message) toast.success(data.message);
+        });
+
+        // When admin updates product
+        onProductEvent('productUpdated', (data) => {
+            console.log('🔄 Cập nhật sản phẩm:', data);
+            fetchProducts();
+            if (data.message) toast.info(data.message);
+        });
+
+        // When admin deletes product
+        onProductEvent('productDeleted', (data) => {
+            console.log('🗑️ Xóa sản phẩm:', data);
+            fetchProducts();
+            if (data.message) toast.warning(data.message);
+        });
+
+        // When stock status changes
+        onProductEvent('stockStatusChanged', (data) => {
+            console.log('📦 Thay đổi tình trạng kho:', data);
+            fetchProducts();
+            if (data.message) toast.warning(data.message);
+        });
+
     }, []);
 
     const filteredProducts = products.filter(product => {
