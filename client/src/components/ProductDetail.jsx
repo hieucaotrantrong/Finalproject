@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import axios from "axios";
 import Home from "./Home";
@@ -37,6 +37,7 @@ const getImageSrc = (image) => {
     if (typeof image === "object") return normalize(image.url || image.image_url || "");
     return "";
 };
+ 
 
 const isProductOutOfStock = (item) => {
     const qty = Number(item?.stock_quantity);
@@ -53,6 +54,37 @@ const ProductDetail = () => {
     const [isFavorite, setIsFavorite] = useState(false);
     const { addToCart } = useCart();
     const [selectedImage, setSelectedImage] = useState("");
+    const userSelectedImageRef = useRef(false);
+    const revertTimerRef = useRef(null);
+
+    const clearRevertTimer = () => {
+        if (revertTimerRef.current) {
+            clearTimeout(revertTimerRef.current);
+            revertTimerRef.current = null;
+        }
+    };
+
+    const scheduleRevertToDefault = (overrideProduct) => {
+        // xóa timer cũ nếu có
+        clearRevertTimer();
+
+        // compute default image at the time of scheduling
+        const p = overrideProduct || product;
+        const routeImage = location && location.state && (location.state.image || location.state.img || location.state.thumbnail);
+        const imgs = p && Array.isArray(p.images)
+            ? p.images
+            : p && typeof p.images === "string"
+                ? p.images.split(",")
+                : [];
+        const defaultImg = routeImage ? getImageSrc(routeImage) : (imgs.length > 0 ? getImageSrc(imgs[0]) : getImageSrc(p?.image));
+
+        // Đặt timer 60s (60000 ms)
+        revertTimerRef.current = setTimeout(() => {
+            userSelectedImageRef.current = false;
+            if (defaultImg) setSelectedImage(defaultImg);
+            revertTimerRef.current = null;
+        }, 30000);
+    };
 
     const [reviews, setReviews] = useState([]);
     const [rating, setRating] = useState(5);
@@ -180,21 +212,25 @@ const ProductDetail = () => {
     const galleryImages = getGalleryImages();
 
     useEffect(() => {
+        // Khi vào trang mới (id thay đổi), reset flag user selection
+        userSelectedImageRef.current = false;
         const fetchProduct = async () => {
             try {
                 const res = await axios.get(`http://localhost:5000/api/products/${id}`);
                 setProduct(res.data);
-
+                // Nếu điều hướng tới trang này có truyền `state.image`, ưu tiên dùng ảnh đó
+                const routeImage = location && location.state && (location.state.image || location.state.img || location.state.thumbnail);
                 const images = Array.isArray(res.data.images)
                     ? res.data.images
                     : typeof res.data.images === "string"
                         ? res.data.images.split(",")
                         : [];
 
-                if (images.length > 0) {
-                    setSelectedImage(getImageSrc(images[0]));
-                } else {
-                    setSelectedImage(getImageSrc(res.data.image));
+                const defaultImg = routeImage ? getImageSrc(routeImage) : (images.length > 0 ? getImageSrc(images[0]) : getImageSrc(res.data.image));
+
+                // Chỉ set ảnh mặc định nếu user chưa chọn thumbnail (để tránh tự động revert)
+                if (!userSelectedImageRef.current) {
+                    setSelectedImage(defaultImg);
                 }
 
                 const favorites = JSON.parse(localStorage.getItem("favorites")) || [];
@@ -212,7 +248,10 @@ const ProductDetail = () => {
             fetchProduct();
         }, 1000);
 
-        return () => clearInterval(intervalId);
+        return () => {
+            clearInterval(intervalId);
+            clearRevertTimer();
+        };
     }, [id]);
     useEffect(() => {
         if (!product) return;
@@ -276,10 +315,16 @@ const ProductDetail = () => {
             
             if (e.key === "ArrowRight") {
                 const nextIndex = (currentIndex + 1) % galleryImages.length;
-                setSelectedImage(galleryImages[nextIndex]);
+                const nextImg = galleryImages[nextIndex];
+                setSelectedImage(nextImg);
+                userSelectedImageRef.current = true;
+                scheduleRevertToDefault();
             } else if (e.key === "ArrowLeft") {
                 const prevIndex = (currentIndex - 1 + galleryImages.length) % galleryImages.length;
-                setSelectedImage(galleryImages[prevIndex]);
+                const prevImg = galleryImages[prevIndex];
+                setSelectedImage(prevImg);
+                userSelectedImageRef.current = true;
+                scheduleRevertToDefault();
             }
         };
 
@@ -422,7 +467,11 @@ const ProductDetail = () => {
                                         key={index}
                                         src={img}
                                         alt={`thumb-${index + 1}`}
-                                        onClick={() => setSelectedImage(img)}
+                                        onClick={() => {
+                                            setSelectedImage(img);
+                                            userSelectedImageRef.current = true;
+                                            scheduleRevertToDefault();
+                                        }}
                                         onError={(e) => {
                                             e.currentTarget.style.display = "none";
                                         }}

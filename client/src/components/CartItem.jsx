@@ -69,7 +69,7 @@ const CartItem = ({ id, image, title, originalprice, price, discount, sold, rati
     return (
         <div className="bg-white shadow-md rounded-lg p-3 w-full flex flex-col h-full transition hover:shadow-lg">
             
-            <Link to={`/product/${id}`} className="block">
+            <Link to={`/product/${id}`} state={{ image }} className="block">
                 <div className="w-full h-32 flex items-center justify-center mb-1">
                     <img
                         src={image}

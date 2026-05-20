@@ -95,7 +95,13 @@ async googleLogin(req: Request, res: Response) {
         }
 
         const jwtToken = jwt.sign(
-            { userId: user.id },
+            {
+                userId: user.id,
+                name: user.first_name,
+                email: user.email,
+                avatar: payload.picture || null,
+                provider: 'google'
+            },
             process.env.JWT_SECRET as string,
             { expiresIn: "1h" }
         );
@@ -181,16 +187,17 @@ async githubLogin(req: Request, res: Response) {
             user = await UserModel.createUser(newUser);
         }
 
-            const jwtToken = jwt.sign(
-  {
-    userId: user.id,
-    name: user.first_name,
-    email: user.email,
-    avatar: githubUser.avatar_url
-  },
-  process.env.JWT_SECRET as string,
-  { expiresIn: "1h" }
-);
+                        const jwtToken = jwt.sign(
+                                {
+                                        userId: user.id,
+                                        name: user.first_name,
+                                        email: user.email,
+                                        avatar: githubUser.avatar_url,
+                                        provider: 'github'
+                                },
+                                process.env.JWT_SECRET as string,
+                                { expiresIn: '1h' }
+                        );
 
         // redirect về frontend sau khi login
        // redirect về trang home

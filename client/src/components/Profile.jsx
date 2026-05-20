@@ -5,7 +5,7 @@ import { FaUser, FaCamera, FaLock, FaArrowLeft } from 'react-icons/fa';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-const DEFAULT_AVATAR = '/assets/avt.jpg';
+const DEFAULT_AVATAR = '/assets/avt22.jpg';
 
 const Profile = () => {
     const [user, setUser] = useState(null);

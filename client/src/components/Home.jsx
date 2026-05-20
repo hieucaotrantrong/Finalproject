@@ -14,7 +14,7 @@ import {
     FaSearch,
 } from "react-icons/fa";
 
-const DEFAULT_AVATAR = '/assets/avt.jpg';
+const DEFAULT_AVATAR = "/assets/avt22.jpg";
 const API_BASE_URL = 'http://localhost:5000/api';
 const TOP_PREFIX = 'top::';
 
@@ -35,6 +35,29 @@ const resolveBannerSrc = (imageUrl = '') => {
     }
 
     return `/assets/${cleanImageUrl}`;
+};
+
+// Determine which avatar to display: allow external URLs only for social logins
+const getDisplayAvatar = (user) => {
+    if (!user) return DEFAULT_AVATAR;
+    const avatar = user.avatar;
+    if (!avatar) return DEFAULT_AVATAR;
+
+    try {
+        // data URL or local path always allowed
+        if (avatar.startsWith('data:') || avatar.startsWith('/')) return avatar;
+
+        const loc = window.location;
+        const url = new URL(avatar, loc.origin);
+        if (url.origin === loc.origin) return avatar;
+
+        // allow external avatar if user.provider indicates social login
+        if (user.provider) return avatar;
+
+    } catch (e) {
+        // fallback
+    }
+    return DEFAULT_AVATAR;
 };
 
 export default function Home({ onFilterChange }) {
@@ -573,7 +596,7 @@ export default function Home({ onFilterChange }) {
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <img
-                                        src={user.avatar || DEFAULT_AVATAR}
+                                        src={getDisplayAvatar(user)}
                                         alt="avatar"
                                         className="w-8 h-8 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-300"
                                         onClick={() => navigate('/profile')}
