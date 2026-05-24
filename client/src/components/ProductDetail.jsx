@@ -448,8 +448,8 @@ const ProductDetail = () => {
 
             <section className="py-8 bg-white">
                 <div className="max-w-screen-xl px-4 mx-auto">
-                    <div className="lg:grid lg:grid-cols-[minmax(380px,460px)_minmax(0,1fr)] lg:gap-8 xl:gap-10">
-                        <div className="shrink-0 w-full max-w-[460px] mx-auto lg:ml-0">
+                    <div className="lg:grid lg:grid-cols-2 lg:gap-12 xl:gap-14 items-start">
+                        <div className="w-full mx-auto lg:mx-0">
                             {/* Ảnh lớn */}
                             <img
                                 src={mainImage}
@@ -457,11 +457,11 @@ const ProductDetail = () => {
                                 onError={(e) => {
                                     e.currentTarget.src = "/assets/banner.jpg";
                                 }}
-                                className="w-full max-w-[460px] rounded-lg shadow-md mb-4"
+                                className="w-full h-auto rounded-lg shadow-md mb-4"
                             />
 
                             {/* Ảnh nhỏ */}
-                            <div className="flex gap-2 justify-center mt-2 flex-wrap">
+                            <div className="flex gap-2 justify-center lg:justify-start mt-2 flex-wrap">
                                 {galleryImages.map((img, index) => (
                                     <img
                                         key={index}
@@ -483,7 +483,7 @@ const ProductDetail = () => {
                             </div>
                         </div>
 
-                        <div className="mt-6 sm:mt-8 lg:mt-0 lg:pl-4 xl:pl-6">
+                        <div className="mt-6 sm:mt-8 lg:mt-0 lg:pl-8 xl:pl-10">
                             <h1 className="text-xl font-semibold text-gray-900 sm:text-2xl">
                                 {product.title}
                             </h1>

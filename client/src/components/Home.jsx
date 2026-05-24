@@ -508,9 +508,9 @@ export default function Home({ onFilterChange }) {
 
                     <div className="flex items-center flex-1 max-w-[600px]">
                         <img
-                            src="/assets/logo.jpg"
+                            src="/assets/logo4.jpg"
                             alt="Logo"
-                            className="h-8 object-contain cursor-pointer mr-4"
+                            className="h-12 w-auto object-contain cursor-pointer mr-4"
                             onClick={() => {
                                 setSearchQuery('');
                                 setSelectedCategory('');

@@ -50,7 +50,7 @@ export default function FlashSale() {
         const cleanImageUrl = toDisplayImageUrl(banner?.image_url || "");
 
         if (!cleanImageUrl) {
-            return "/assets/bannerngang.png";
+            return "";
         }
 
         if (
@@ -68,21 +68,25 @@ export default function FlashSale() {
 
     return (
         <>
-            <div className="hidden xl:block fixed left-3 top-[190px] z-40">
-                <img
-                    src={sideBannerSrc}
-                    alt="Left side banner"
-                    className="w-[110px] h-[330px] rounded-lg object-cover"
-                />
-            </div>
+            {sideBannerSrc && (
+                <>
+                    <div className="hidden xl:block fixed left-3 top-[190px] z-40">
+                        <img
+                            src={sideBannerSrc}
+                            alt="Left side banner"
+                            className="w-[110px] h-[330px] rounded-lg object-cover"
+                        />
+                    </div>
 
-            <div className="hidden xl:block fixed right-3 top-[190px] z-40">
-                <img
-                    src={sideBannerSrc}
-                    alt="Right side banner"
-                    className="w-[110px] h-[330px] rounded-lg object-cover"
-                />
-            </div>
+                    <div className="hidden xl:block fixed right-3 top-[190px] z-40">
+                        <img
+                            src={sideBannerSrc}
+                            alt="Right side banner"
+                            className="w-[110px] h-[330px] rounded-lg object-cover"
+                        />
+                    </div>
+                </>
+            )}
 
             <div className="bg-white mt-6 p-6 shadow-sm rounded-md w-full max-w-[1200px] mx-auto">
                 <h2 className="text-lg font-bold mb-4">

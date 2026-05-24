@@ -104,7 +104,7 @@ export const createDiscount = async (req: Request, res: Response): Promise<void>
                         const name = u.first_name || '';
                         const html = `
                             <p>Xin chào ${name},</p>
-                            <p>Bạn đã nhận được voucher TDDD<strong>${created.code}</strong> — <strong>${valueText}</strong>.</p>
+                            <p>Bạn đã nhận được voucher<strong>${created.code}</strong> — <strong>${valueText}</strong>.</p>
                             <ul>
                               <li>Yêu cầu tối thiểu: ${Number(created.min_amount || 0).toLocaleString('vi-VN')} đ</li>
                               <li>Hạn dùng: ${expiryText}</li>

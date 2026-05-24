@@ -28,9 +28,9 @@ export const forgotPassword = async (req: Request, res: Response) => {
     await transporter.sendMail({
     from: process.env.EMAIL_USER,
     to: email,
-    subject: "Đặt lại mật khẩu - TdddWebsite",
+    subject: "Đặt lại mật khẩu - TechWorld",
     text: `
-TdddWebsite
+TechWorld
 
 Xin chào,
 
@@ -43,7 +43,7 @@ Mã này sẽ hết hạn sau 1 phút. Vui lòng không chia sẻ mã này với
 Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email này để đảm bảo an toàn cho tài khoản.
 
 Trân trọng,
-Đội ngũ TdddWebsite
+Đội ngũ TechWorld
 `
   });
 

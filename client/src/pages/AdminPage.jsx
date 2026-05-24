@@ -232,7 +232,7 @@ setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
                             // Emit socket event
                             emitProductEvent('productDeleted', { 
                                 productId: id, 
-                                message: `🗑️ Admin vừa xóa sản phẩm` 
+                                message: ` Admin vừa xóa sản phẩm` 
                             });
             } catch (error) {
                 console.error('Lỗi khi xoá sản phẩm:', error);
@@ -344,7 +344,7 @@ setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
                             }}
                         >
                             <img
-                                src="/assets/logoadmin.png"
+                                src="/assets/logoadmin1.jpg"
                                 alt="logo"
                                 className="mx-auto h-16 w-auto object-contain"
                             />

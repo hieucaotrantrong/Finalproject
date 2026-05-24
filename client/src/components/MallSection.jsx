@@ -55,9 +55,9 @@ export default function MallSection() {
                 <div className="flex gap-4">
 
                     {/* Banner */}
-                    <div className="w-1/4">
+                    <div className="w-1/4 h-[460px] overflow-hidden rounded">
                         <img
-                            src="https://cdnv2.tgdd.vn/mwg-static/tgdd/Banner/e8/e1/e8e182cf81dff9d70fc9017070c848c5.png"
+                            src="/assets/dacquyen2.png"
                             alt="banner"
                             className="w-full h-full object-cover rounded"
                         />

@@ -248,12 +248,18 @@ export default function Header({ initialSearchQuery = '', onSearchSubmit, onCate
 
                 <div className="flex items-center w-[600px]">
 
-                    <img
-                        src="./assets/logo.jpg"
-                        alt="Logo"
-                        className="h-10 object-contain cursor-pointer"
+                    <button
+                        type="button"
                         onClick={() => navigate('/')}
-                    />
+                        className="flex-none"
+                        aria-label="Về trang chủ"
+                    >
+                        <img
+                            src="/assets/logo4.jpg"
+                            alt="Logo"
+                            className="h-12 w-auto object-contain cursor-pointer"
+                        />
+                    </button>
 
                     <div ref={searchRef} className="relative ml-2 flex-1">
 

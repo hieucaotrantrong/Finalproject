@@ -83,7 +83,7 @@ const ChatBotIcon = () => {
                             <img src="/assets/chatbot.png" alt="Chatbot" className="h-6 w-6 rounded-full object-cover" />
                         </div>
                         <div className="min-w-0">
-                            <p className="text-sm font-semibold text-gray-800">Trợ lý TDDD</p>
+                            <p className="text-sm font-semibold text-gray-800">Trợ lý TechWorld</p>
                             <p className="mt-1 text-xs leading-5 text-gray-600">
                                 Xin chào Anh/Chị!
                                 <br />

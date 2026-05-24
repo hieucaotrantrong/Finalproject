@@ -38,7 +38,7 @@ const CartPageView = () => {
         const cleanImageUrl = toDisplayImageUrl(banner?.image_url || "");
 
         if (!cleanImageUrl) {
-            return "/assets/bannerngang.png";
+            return "";
         }
 
         if (
@@ -95,21 +95,25 @@ const CartPageView = () => {
             <Home />
 
             {/* Side Banners */}
-            <div className="hidden xl:block fixed left-3 top-[190px] z-40">
-                <img
-                    src={sideBannerSrc}
-                    alt="Left side banner"
-                    className="w-[110px] h-[330px] rounded-lg object-cover"
-                />
-            </div>
+            {sideBannerSrc && (
+                <>
+                    <div className="hidden xl:block fixed left-3 top-[190px] z-40">
+                        <img
+                            src={sideBannerSrc}
+                            alt="Left side banner"
+                            className="w-[110px] h-[330px] rounded-lg object-cover"
+                        />
+                    </div>
 
-            <div className="hidden xl:block fixed right-3 top-[190px] z-40">
-                <img
-                    src={sideBannerSrc}
-                    alt="Right side banner"
-                    className="w-[110px] h-[330px] rounded-lg object-cover"
-                />
-            </div>
+                    <div className="hidden xl:block fixed right-3 top-[190px] z-40">
+                        <img
+                            src={sideBannerSrc}
+                            alt="Right side banner"
+                            className="w-[110px] h-[330px] rounded-lg object-cover"
+                        />
+                    </div>
+                </>
+            )}
 
             {/* Carousel Banner */}
             <Carousel />

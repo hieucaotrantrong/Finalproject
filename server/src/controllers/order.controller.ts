@@ -50,9 +50,9 @@ const sendOrderConfirmationEmail = async (order: any): Promise<void> => {
     await transporter.sendMail({
         from: process.env.EMAIL_USER,
         to: email,
-        subject: `Xác nhận đơn hàng #${orderId} - TdddWebsite`,
+        subject: `Xác nhận đơn hàng #${orderId} - TechWorld`,
         text: [
-            'TdddWebsite',
+            'TechWorld',
             '',
             `Xin chào ${order.full_name || ''},`,
             '',
@@ -67,7 +67,7 @@ const sendOrderConfirmationEmail = async (order: any): Promise<void> => {
             `Thanh toán: ${paymentMethod}`,
             `Trạng thái: ${status}`,
             '',
-            'Cảm ơn bạn đã mua hàng tại TdddWebsite.'
+            'Cảm ơn bạn đã mua hàng tại TechWorld.'
         ].join('\n'),
         html: `
             <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827;">
@@ -84,7 +84,7 @@ const sendOrderConfirmationEmail = async (order: any): Promise<void> => {
                     <li>Thanh toán: ${paymentMethod}</li>
                     <li>Trạng thái: ${status}</li>
                 </ul>
-                <p>Cảm ơn bạn đã mua hàng tại TdddWebsite.</p>
+                <p>Cảm ơn bạn đã mua hàng tại TechWorld.</p>
             </div>
         `
     });

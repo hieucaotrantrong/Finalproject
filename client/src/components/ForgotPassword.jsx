@@ -171,11 +171,11 @@ export default function ForgotPassword() {
 
             <div className="flex items-center gap-3">
               <img
-                src="https://cdn.haitrieu.com/wp-content/uploads/2021/11/Logo-The-Gioi-Di-Dong-MWG.png"
+                src="/assets/logop.jpg"
                 className="w-8 h-8"
                 alt="logo"
               />
-              <h2 className="text-xl font-bold text-gray-900">TDDD</h2>
+              <h2 className="text-xl font-bold text-gray-900">TechWorld</h2>
             </div>
 
             {/* STEP 1 */}

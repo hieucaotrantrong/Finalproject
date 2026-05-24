@@ -138,7 +138,7 @@ export default function SupportPage() {
                                     <h3 className="text-gray-700 font-semibold text-base">Email</h3>
                                 </div>
                                 <p className="text-gray-600 text-sm text-center mb-2">Đội ngũ thân thiện sẵn sàng giúp.</p>
-                                <p className="text-gray-700 font-semibold text-sm text-center">chamsockhachhangtddd@gmail.com</p>
+                                <p className="text-gray-700 font-semibold text-sm text-center">chamsockhachhangtechworld@gmail.com</p>
                             </div>
 
                         {/* Live Chat Section */}

@@ -51,21 +51,21 @@ const CartPage = ({ searchQuery = '', categoryFilter = '' }) => {
 
         // When admin adds product
         onProductEvent('productAdded', (data) => {
-            console.log('✅ Sản phẩm mới:', data);
+            console.log(' Sản phẩm mới:', data);
             fetchProducts();
             if (data.message) toast.success(data.message);
         });
 
         // When admin updates product
         onProductEvent('productUpdated', (data) => {
-            console.log('🔄 Cập nhật sản phẩm:', data);
+            console.log(' Cập nhật sản phẩm:', data);
             fetchProducts();
             if (data.message) toast.info(data.message);
         });
 
         // When admin deletes product
         onProductEvent('productDeleted', (data) => {
-            console.log('🗑️ Xóa sản phẩm:', data);
+            console.log(' Xóa sản phẩm:', data);
             fetchProducts();
             if (data.message) toast.warning(data.message);
         });

@@ -54,8 +54,8 @@ export default function Carousel() {
   if (!banners.length) return null;
 
   return (
-    <div className="w-full px-10 py-6">
-      <div className="w-[85%] mx-auto overflow-hidden rounded-lg border border-gray-300">
+    <div className="w-full max-w-[1280px] mx-auto px-4 py-6">
+      <div className="w-full overflow-hidden rounded-lg border border-gray-300">
         <div
           className="flex transition-transform duration-700 ease-in-out"
           style={{ transform: `translateX(-${current * 100}%)` }}
