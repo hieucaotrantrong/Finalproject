@@ -1,11 +1,17 @@
 import React, { useEffect, useState } from "react";
 import CartItem from "./CartItem";
 
+const SIDE_PREFIX = "side::";
+
+const isSideBanner = (imageUrl = "") => imageUrl.startsWith(SIDE_PREFIX);
+const toDisplayImageUrl = (imageUrl = "") => imageUrl.replace(SIDE_PREFIX, "");
+
 export default function CategoryGrid() {
 
     const [products, setProducts] = useState([]);
-    const [activeTab, setActiveTab] = useState('all');
+    const [activeTab, setActiveTab] = useState('tat-ca');
     const [showAll, setShowAll] = useState(false);
+    const [sideBanner, setSideBanner] = useState(null);
 
     const fetchProducts = () => {
         fetch("http://localhost:5000/api/products")
@@ -25,6 +31,38 @@ export default function CategoryGrid() {
 
         return () => clearInterval(intervalId);
     }, []);
+
+    useEffect(() => {
+        fetch("http://localhost:5000/api/banners")
+            .then((res) => res.json())
+            .then((data) => {
+                if (Array.isArray(data)) {
+                    const firstSideBanner = data.find((item) => isSideBanner(item.image_url));
+                    setSideBanner(firstSideBanner || null);
+                }
+            })
+            .catch(() => setSideBanner(null));
+    }, []);
+
+    const resolveBannerSrc = (banner) => {
+        const cleanImageUrl = toDisplayImageUrl(banner?.image_url || "");
+
+        if (!cleanImageUrl) {
+            return "";
+        }
+
+        if (
+            cleanImageUrl.startsWith("http://") ||
+            cleanImageUrl.startsWith("https://") ||
+            cleanImageUrl.startsWith("/")
+        ) {
+            return cleanImageUrl;
+        }
+
+        return `/assets/${cleanImageUrl}`;
+    };
+
+    const sideBannerSrc = resolveBannerSrc(sideBanner);
 
     const normalizeCategory = (value = '') => {
         return String(value)
@@ -64,7 +102,27 @@ export default function CategoryGrid() {
 
     return (
 
-        <div className="w-full bg-white mt-4">
+        <div className="w-full bg-white mt-4 relative">
+
+            {sideBannerSrc && (
+                <>
+                    <div className="hidden xl:block fixed left-[calc(50%-760px)] top-[190px] z-40">
+                        <img
+                            src={sideBannerSrc}
+                            alt="Left side banner"
+                            className="w-[110px] h-[330px] rounded-lg object-cover"
+                        />
+                    </div>
+
+                    <div className="hidden xl:block fixed right-[calc(50%-760px)] top-[190px] z-40">
+                        <img
+                            src={sideBannerSrc}
+                            alt="Right side banner"
+                            className="w-[110px] h-[330px] rounded-lg object-cover"
+                        />
+                    </div>
+                </>
+            )}
 
             <div className="max-w-7xl mx-auto px-4 py-3">
 

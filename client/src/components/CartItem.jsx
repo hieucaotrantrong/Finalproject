@@ -1,5 +1,5 @@
 import React from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 const formatPrice = (price) => {
     const numPrice = Math.floor(parseFloat(price));
@@ -30,6 +30,10 @@ const CartItem = ({ id, image, title, originalprice, price, discount, sold, rati
     const navigate = useNavigate();
     const displayRating = rating ?? average_rating;
     const productOutOfStock = isProductOutOfStock(is_out_of_stock, stock_quantity);
+
+    const handleOpenProduct = () => {
+        navigate(`/product/${id}`);
+    };
 
     const handleBuyNow = () => {
         if (productOutOfStock) {
@@ -67,17 +71,25 @@ const CartItem = ({ id, image, title, originalprice, price, discount, sold, rati
     };
 
     return (
-        <div className="bg-white shadow-md rounded-lg p-3 w-full flex flex-col h-full transition hover:shadow-lg">
-            
-            <Link to={`/product/${id}`} state={{ image }} className="block">
-                <div className="w-full h-32 flex items-center justify-center mb-1">
-                    <img
-                        src={image}
-                        alt={title}
-                        className="max-h-full max-w-full object-contain cursor-pointer hover:opacity-90 transition"
-                    />
-                </div>
-            </Link>
+        <div
+            role="button"
+            tabIndex={0}
+            onClick={handleOpenProduct}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleOpenProduct();
+                }
+            }}
+            className="bg-white shadow-md rounded-lg p-3 w-full flex flex-col h-full transition hover:shadow-lg cursor-pointer"
+        >
+            <div className="w-full h-32 flex items-center justify-center mb-1">
+                <img
+                    src={image}
+                    alt={title}
+                    className="max-h-full max-w-full object-contain hover:opacity-90 transition"
+                />
+            </div>
 
             <div className="flex flex-col flex-grow">
                 <h2 className="text-sm font-medium mb-1 line-clamp-2 h-10 leading-tight">
@@ -115,7 +127,10 @@ const CartItem = ({ id, image, title, originalprice, price, discount, sold, rati
                     </span>
 
                     <button
-                        onClick={handleBuyNow}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleBuyNow();
+                        }}
                         disabled={productOutOfStock}
                         className={`px-2 py-1 text-xs rounded transition whitespace-nowrap ${
                             productOutOfStock

@@ -79,8 +79,7 @@ app.use('/api/discounts', discountRoutes);
 Start Servers
 --------------------------------------*/
 server.listen(PORT, () => {
-    console.log(` Server is listening on port ${PORT}`);
-    console.log(`🔌 Socket.io ready on ws://localhost:${PORT}`);
+
 });
 
 /*------------------------------------

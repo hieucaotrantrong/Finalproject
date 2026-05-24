@@ -1,0 +1,3 @@
+ALTER TABLE users
+ALTER COLUMN avatar TYPE TEXT
+USING avatar::TEXT;

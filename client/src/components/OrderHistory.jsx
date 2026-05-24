@@ -7,10 +7,6 @@ import Footers from './Footers';
 import Carousel from './Carousel';
 import { connectSocket, onProductEvent, offProductEvent } from '../utils/socket';
 
-const SIDE_PREFIX = "side::";
-const isSideBanner = (imageUrl = "") => imageUrl.startsWith(SIDE_PREFIX);
-const toDisplayImageUrl = (imageUrl = "") => imageUrl.replace(SIDE_PREFIX, "");
-
 const formatVnd = (value) => {
     const num = Number(String(value ?? 0).replace(/[^\d.-]/g, ''));
     if (!Number.isFinite(num)) return '0';
@@ -58,7 +54,6 @@ const OrderHistory = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [activeTab, setActiveTab] = useState('pending');
-    const [sideBanner, setSideBanner] = useState(null);
 
  
     const orderTabs = [
@@ -107,38 +102,6 @@ const OrderHistory = () => {
             offProductEvent('orderChanged');
         };
     }, []);
-
-    useEffect(() => {
-        fetch("http://localhost:5000/api/banners")
-            .then(res => res.json())
-            .then(data => {
-                if (Array.isArray(data)) {
-                    const firstSideBanner = data.find((item) => isSideBanner(item.image_url));
-                    setSideBanner(firstSideBanner || null);
-                }
-            })
-            .catch(err => console.log("Lỗi fetch banner:", err));
-    }, []);
-
-    const resolveBannerSrc = (banner) => {
-        const cleanImageUrl = toDisplayImageUrl(banner?.image_url || "");
-
-        if (!cleanImageUrl) {
-            return "/assets/bannerngang.png";
-        }
-
-        if (
-            cleanImageUrl.startsWith("http://") ||
-            cleanImageUrl.startsWith("https://") ||
-            cleanImageUrl.startsWith("/")
-        ) {
-            return cleanImageUrl;
-        }
-
-        return `/assets/${cleanImageUrl}`;
-    };
-
-    const sideBannerSrc = resolveBannerSrc(sideBanner);
 
     const fetchUserOrders = async () => {
         try {
@@ -198,22 +161,6 @@ const OrderHistory = () => {
     return (
         <div className="bg-[#f0f2f5] min-h-screen">
             <Home />
-
-            <div className="hidden xl:block fixed left-3 top-[190px] z-40">
-                <img
-                    src={sideBannerSrc}
-                    alt="Left side banner"
-                    className="w-[110px] h-[330px] rounded-lg object-cover"
-                />
-            </div>
-
-            <div className="hidden xl:block fixed right-3 top-[190px] z-40">
-                <img
-                    src={sideBannerSrc}
-                    alt="Right side banner"
-                    className="w-[110px] h-[330px] rounded-lg object-cover"
-                />
-            </div>
 
             <Carousel />
 

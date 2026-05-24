@@ -103,23 +103,6 @@ export default function SupportPage() {
             {/* Header từ Home component */}
             <Home />
 
-            {/* Side Banners */}
-            <div className="hidden xl:block fixed left-3 top-[190px] z-40">
-                <img
-                    src={sideBannerSrc}
-                    alt="Left side banner"
-                    className="w-[110px] h-[330px] rounded-lg object-cover"
-                />
-            </div>
-
-            <div className="hidden xl:block fixed right-3 top-[190px] z-40">
-                <img
-                    src={sideBannerSrc}
-                    alt="Right side banner"
-                    className="w-[110px] h-[330px] rounded-lg object-cover"
-                />
-            </div>
-
             <Carousel />
 
             {/* Support Content */}

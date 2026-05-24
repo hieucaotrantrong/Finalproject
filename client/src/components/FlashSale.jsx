@@ -1,22 +1,95 @@
 import React, { useEffect, useState } from "react";
 import CartItem from "./CartItem";
 
-const SIDE_PREFIX = "side::";
+const VIEW_STORAGE_KEY = "productViews";
+const CATEGORY_STORAGE_KEY = "categoryViews";
 
-const isSideBanner = (imageUrl = "") => imageUrl.startsWith(SIDE_PREFIX);
-const toDisplayImageUrl = (imageUrl = "") => imageUrl.replace(SIDE_PREFIX, "");
+const normalizeCategory = (value = "") => {
+    return String(value)
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim();
+};
+
+const CATEGORY_GROUPS = {
+    "dien-thoai": ["phone", "dien-thoai", "dien thoai", "điện thoại"],
+    laptop: ["laptop"],
+    "phu-kien": ["accessory", "phu-kien", "phu kien", "phụ kiện"],
+    "dong-ho": ["watch", "dong-ho", "dong ho", "đồng hồ"],
+    "dong-ho-thong-minh": ["smartwatch", "dong-ho-thong-minh", "dong ho thong minh"],
+};
+
+const getCategoryGroup = (value = "") => {
+    const normalized = normalizeCategory(value);
+    for (const [group, aliases] of Object.entries(CATEGORY_GROUPS)) {
+        if (aliases.map(normalizeCategory).includes(normalized)) {
+            return group;
+        }
+    }
+    return normalized;
+};
+
+const getViewCountsFromStorage = () => {
+    try {
+        return JSON.parse(localStorage.getItem(VIEW_STORAGE_KEY)) || {};
+    } catch (e) {
+        return {};
+    }
+};
+
+const getCategoryCountsFromStorage = () => {
+    try {
+        return JSON.parse(localStorage.getItem(CATEGORY_STORAGE_KEY)) || {};
+    } catch (e) {
+        return {};
+    }
+};
 
 export default function FlashSale() {
 
     const [products, setProducts] = useState([]);
     const [showAll, setShowAll] = useState(false);
-    const [sideBanner, setSideBanner] = useState(null);
 
     const fetchProducts = () => {
         fetch("http://localhost:5000/api/products")
             .then(res => res.json())
             .then(data => {
-                setProducts(Array.isArray(data) ? data : []);
+                const list = Array.isArray(data) ? data : [];
+
+                try {
+                    const counts = getViewCountsFromStorage();
+                    const categoryCounts = getCategoryCountsFromStorage();
+                    const activeCategory = getCategoryGroup(localStorage.getItem("activeRecommendationCategory") || "");
+
+                    const sorted = [...list].sort((a, b) => {
+                        const av = Number(counts[String(a.id)] || 0);
+                        const bv = Number(counts[String(b.id)] || 0);
+                        const aCategory = getCategoryGroup(a.category || "");
+                        const bCategory = getCategoryGroup(b.category || "");
+                        const aCategoryScore = Number(categoryCounts[String(aCategory)] || 0);
+                        const bCategoryScore = Number(categoryCounts[String(bCategory)] || 0);
+
+                        if (activeCategory) {
+                            const aActive = aCategory === activeCategory ? 1 : 0;
+                            const bActive = bCategory === activeCategory ? 1 : 0;
+                            if (bActive !== aActive) return bActive - aActive;
+                        }
+
+                        if (bCategoryScore !== aCategoryScore) return bCategoryScore - aCategoryScore;
+                        if (bv !== av) return bv - av;
+
+                        const ar = Number(a.average_rating || a.rating || 0);
+                        const br = Number(b.average_rating || b.rating || 0);
+                        if (br !== ar) return br - ar;
+
+                        return a.id - b.id;
+                    });
+
+                    setProducts(sorted);
+                } catch (e) {
+                    setProducts(list);
+                }
             })
             .catch(err => console.log("Lỗi fetch sản phẩm:", err));
     };
@@ -24,70 +97,24 @@ export default function FlashSale() {
     useEffect(() => {
         fetchProducts();
 
-        const intervalId = setInterval(() => {
+        const handleRecommendationUpdate = () => {
             fetchProducts();
-        }, 1000);
+        };
 
-        return () => clearInterval(intervalId);
-    }, []);
+        window.addEventListener("recommendationViewsUpdated", handleRecommendationUpdate);
+        window.addEventListener("storage", handleRecommendationUpdate);
 
-    useEffect(() => {
-        fetch("http://localhost:5000/api/banners")
-            .then(res => res.json())
-            .then(data => {
-                if (Array.isArray(data)) {
-                    const firstSideBanner = data.find((item) => isSideBanner(item.image_url));
-                    setSideBanner(firstSideBanner || null);
-                }
-            })
-            .catch(err => console.log("Lỗi fetch banner:", err));
+        return () => {
+            window.removeEventListener("recommendationViewsUpdated", handleRecommendationUpdate);
+            window.removeEventListener("storage", handleRecommendationUpdate);
+        };
     }, []);
 
     const firstProducts = products.slice(0, 12);
     const moreProducts = products.slice(12);
 
-    const resolveBannerSrc = (banner) => {
-        const cleanImageUrl = toDisplayImageUrl(banner?.image_url || "");
-
-        if (!cleanImageUrl) {
-            return "";
-        }
-
-        if (
-            cleanImageUrl.startsWith("http://") ||
-            cleanImageUrl.startsWith("https://") ||
-            cleanImageUrl.startsWith("/")
-        ) {
-            return cleanImageUrl;
-        }
-
-        return `/assets/${cleanImageUrl}`;
-    };
-
-    const sideBannerSrc = resolveBannerSrc(sideBanner);
-
     return (
         <>
-            {sideBannerSrc && (
-                <>
-                    <div className="hidden xl:block fixed left-3 top-[190px] z-40">
-                        <img
-                            src={sideBannerSrc}
-                            alt="Left side banner"
-                            className="w-[110px] h-[330px] rounded-lg object-cover"
-                        />
-                    </div>
-
-                    <div className="hidden xl:block fixed right-3 top-[190px] z-40">
-                        <img
-                            src={sideBannerSrc}
-                            alt="Right side banner"
-                            className="w-[110px] h-[330px] rounded-lg object-cover"
-                        />
-                    </div>
-                </>
-            )}
-
             <div className="bg-white mt-6 p-6 shadow-sm rounded-md w-full max-w-[1200px] mx-auto">
                 <h2 className="text-lg font-bold mb-4">
                     Gợi ý cho bạn

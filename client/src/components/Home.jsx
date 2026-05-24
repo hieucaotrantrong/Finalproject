@@ -17,9 +17,12 @@ import {
 const DEFAULT_AVATAR = "/assets/avt22.jpg";
 const API_BASE_URL = 'http://localhost:5000/api';
 const TOP_PREFIX = 'top::';
+const SIDE_PREFIX = 'side::';
 
 const isTopBanner = (imageUrl = '') => String(imageUrl).startsWith(TOP_PREFIX);
+const isSideBanner = (imageUrl = '') => String(imageUrl).startsWith(SIDE_PREFIX);
 const toDisplayImageUrl = (imageUrl = '') => String(imageUrl).replace(TOP_PREFIX, '');
+const toDisplaySideBannerUrl = (imageUrl = '') => String(imageUrl).replace(SIDE_PREFIX, '');
 
 const resolveBannerSrc = (imageUrl = '') => {
     const cleanImageUrl = toDisplayImageUrl(imageUrl);
@@ -81,6 +84,7 @@ export default function Home({ onFilterChange }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('');
     const [topBannerUrl, setTopBannerUrl] = useState('');
+    const [sideBannerUrl, setSideBannerUrl] = useState('');
     const navigate = useNavigate();
     const searchRef = useRef(null);
     const { cartItems, getTotalItems, getTotalPrice, updateQuantity, removeFromCart, isCartOpen, setIsCartOpen } = useCart();
@@ -130,14 +134,30 @@ export default function Home({ onFilterChange }) {
         fetch('http://localhost:5000/api/banners')
             .then((res) => res.json())
             .then((data) => {
-                const topBanner = (Array.isArray(data) ? data : []).find((banner) => isTopBanner(banner?.image_url));
+                const banners = Array.isArray(data) ? data : [];
+                const topBanner = banners.find((banner) => isTopBanner(banner?.image_url));
+                const sideBanner = banners.find((banner) => isSideBanner(banner?.image_url));
 
                 if (!topBanner) {
                     setTopBannerUrl('');
-                    return;
+                } else {
+                    setTopBannerUrl(resolveBannerSrc(topBanner.image_url));
                 }
 
-                setTopBannerUrl(resolveBannerSrc(topBanner.image_url));
+                if (!sideBanner) {
+                    setSideBannerUrl('');
+                } else {
+                    const cleanImageUrl = toDisplaySideBannerUrl(sideBanner.image_url);
+                    if (
+                        cleanImageUrl.startsWith('http://') ||
+                        cleanImageUrl.startsWith('https://') ||
+                        cleanImageUrl.startsWith('/')
+                    ) {
+                        setSideBannerUrl(cleanImageUrl);
+                    } else {
+                        setSideBannerUrl(`/assets/${cleanImageUrl}`);
+                    }
+                }
             })
             .catch(() => setTopBannerUrl(''));
     }, []);
@@ -490,6 +510,26 @@ export default function Home({ onFilterChange }) {
 
     return (
         <div>
+
+            {sideBannerUrl && (
+                <>
+                    <div className="hidden xl:block fixed left-[calc(50%-760px)] top-[190px] z-40">
+                        <img
+                            src={sideBannerUrl}
+                            alt="Left side banner"
+                            className="w-[110px] h-[330px] rounded-lg object-cover"
+                        />
+                    </div>
+
+                    <div className="hidden xl:block fixed right-[calc(50%-760px)] top-[190px] z-40">
+                        <img
+                            src={sideBannerUrl}
+                            alt="Right side banner"
+                            className="w-[110px] h-[330px] rounded-lg object-cover"
+                        />
+                    </div>
+                </>
+            )}
 
             {topBannerUrl && (
                 <div className="w-full bg-[#fbc219] border-b border-[#f2b700]">

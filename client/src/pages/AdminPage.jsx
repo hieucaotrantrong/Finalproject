@@ -488,12 +488,12 @@ setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
                             className="border border-gray-300 rounded px-4 py-2"
                         />
 
-                        <input
-                            type="text"
+                        <textarea
                             placeholder="Tag"
                             value={form.tag}
                             onChange={(e) => setForm({ ...form, tag: e.target.value })}
-                            className="border border-gray-300 rounded px-4 py-2"
+                            rows={3}
+                            className="border border-gray-300 rounded px-4 py-2 resize-y"
                         />
 
                         <div>

@@ -45,6 +45,75 @@ const isProductOutOfStock = (item) => {
     return Boolean(item?.is_out_of_stock) || (hasQty && qty <= 0);
 };
 
+const normalizeCategory = (value = "") => {
+    return String(value)
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim();
+};
+
+const CATEGORY_GROUPS = {
+    "dien-thoai": ["phone", "dien-thoai", "dien thoai", "điện thoại"],
+    laptop: ["laptop"],
+    "phu-kien": ["accessory", "phu-kien", "phu kien", "phụ kiện"],
+    "dong-ho": ["watch", "dong-ho", "dong ho", "đồng hồ"],
+    "dong-ho-thong-minh": ["smartwatch", "dong-ho-thong-minh", "dong ho thong minh"],
+};
+
+const getCategoryGroup = (value = "") => {
+    const normalized = normalizeCategory(value);
+    for (const [group, aliases] of Object.entries(CATEGORY_GROUPS)) {
+        if (aliases.map(normalizeCategory).includes(normalized)) {
+            return group;
+        }
+    }
+    return normalized;
+};
+
+const VIEW_STORAGE_KEY = "productViews";
+const CATEGORY_STORAGE_KEY = "categoryViews";
+
+const getViewCountsFromStorage = () => {
+    try {
+        return JSON.parse(localStorage.getItem(VIEW_STORAGE_KEY)) || {};
+    } catch (e) {
+        return {};
+    }
+};
+
+const getCategoryCountsFromStorage = () => {
+    try {
+        return JSON.parse(localStorage.getItem(CATEGORY_STORAGE_KEY)) || {};
+    } catch (e) {
+        return {};
+    }
+};
+
+const incrementViewCount = (productId) => {
+    try {
+        if (!productId) return;
+        const data = getViewCountsFromStorage();
+        const key = String(productId);
+        data[key] = (Number(data[key]) || 0) + 1;
+        localStorage.setItem(VIEW_STORAGE_KEY, JSON.stringify(data));
+    } catch (e) {
+        // ignore
+    }
+};
+
+const incrementCategoryCount = (category) => {
+    try {
+        if (!category) return;
+        const data = getCategoryCountsFromStorage();
+        const key = String(category);
+        data[key] = (Number(data[key]) || 0) + 1;
+        localStorage.setItem(CATEGORY_STORAGE_KEY, JSON.stringify(data));
+    } catch (e) {
+        // ignore
+    }
+};
+
 const ProductDetail = () => {
     const { id } = useParams();
     const location = useLocation();
@@ -93,6 +162,7 @@ const ProductDetail = () => {
     const [accessoryProducts, setAccessoryProducts] = useState([]);
     const [openSpecGroups, setOpenSpecGroups] = useState({});
     const [sideBanner, setSideBanner] = useState(null);
+    const trackedProductIdRef = useRef(null);
 
     const toggleSpecGroup = (groupName) => {
         setOpenSpecGroups((prev) => ({
@@ -215,6 +285,12 @@ const ProductDetail = () => {
         // Khi vào trang mới (id thay đổi), reset flag user selection
         userSelectedImageRef.current = false;
         const fetchProduct = async () => {
+            setLoading(true);
+            setError("");
+            setProduct(null);
+            setSelectedImage("");
+            setAccessoryProducts([]);
+
             try {
                 const res = await axios.get(`http://localhost:5000/api/products/${id}`);
                 setProduct(res.data);
@@ -233,6 +309,25 @@ const ProductDetail = () => {
                     setSelectedImage(defaultImg);
                 }
 
+                const categoryGroup = getCategoryGroup(res.data.category || res.data.category_name || "");
+
+                try {
+                    localStorage.setItem("activeRecommendationCategory", categoryGroup);
+                } catch (e) {
+                    // ignore
+                }
+
+                if (trackedProductIdRef.current !== res.data.id) {
+                    try {
+                        incrementViewCount(res.data.id);
+                        incrementCategoryCount(categoryGroup);
+                        trackedProductIdRef.current = res.data.id;
+                        window.dispatchEvent(new Event("recommendationViewsUpdated"));
+                    } catch (e) {
+                        // ignore
+                    }
+                }
+
                 const favorites = JSON.parse(localStorage.getItem("favorites")) || [];
                 setIsFavorite(favorites.some((item) => item.id === parseInt(id)));
             } catch (err) {
@@ -244,12 +339,7 @@ const ProductDetail = () => {
 
         fetchProduct();
 
-        const intervalId = setInterval(() => {
-            fetchProduct();
-        }, 1000);
-
         return () => {
-            clearInterval(intervalId);
             clearRevertTimer();
         };
     }, [id]);
@@ -427,22 +517,6 @@ const ProductDetail = () => {
     return (
         <div className="min-h-screen bg-gray-50">
             <Home />
-
-            <div className="hidden xl:block fixed left-3 top-[190px] z-40">
-                <img
-                    src={sideBannerSrc}
-                    alt="Left side banner"
-                    className="w-[110px] h-[330px] rounded-lg object-cover"
-                />
-            </div>
-
-            <div className="hidden xl:block fixed right-3 top-[190px] z-40">
-                <img
-                    src={sideBannerSrc}
-                    alt="Right side banner"
-                    className="w-[110px] h-[330px] rounded-lg object-cover"
-                />
-            </div>
 
             <Carousel />
 

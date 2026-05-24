@@ -2,6 +2,32 @@ import pool from '../config/database';
 import { User } from '../interfaces/User';
 import bcrypt from 'bcryptjs';
 
+const normalizeText = (value: any, maxLength?: number): string | null => {
+    if (value === undefined || value === null) {
+        return null;
+    }
+
+    const text = String(value).trim();
+    if (!text) {
+        return null;
+    }
+
+    if (typeof maxLength === 'number' && text.length > maxLength) {
+        return text.slice(0, maxLength);
+    }
+
+    return text;
+};
+
+const normalizeAvatar = (value: any): string | null => {
+    if (value === undefined || value === null) {
+        return null;
+    }
+
+    const rawAvatar = String(value).trim();
+    return rawAvatar || null;
+};
+
 export default {
     /* -----------------------------------------
        Create User
@@ -59,6 +85,18 @@ export default {
         // Format date for PostgreSQL (YYYY-MM-DD)
         let formattedBirthDate = birth_date ? new Date(birth_date).toISOString().split("T")[0] : null;
 
+        const currentUser = await this.findById(userId);
+        if (!currentUser) {
+            return null;
+        }
+
+        const normalizedFirstName = normalizeText(first_name, 100) ?? currentUser.first_name;
+        const normalizedLastName = normalizeText(last_name, 100) ?? currentUser.last_name;
+        const normalizedEmail = normalizeText(email, 254) ?? currentUser.email;
+        const normalizedPhone = normalizeText(phone, 30) ?? null;
+        const normalizedAddress = normalizeText(address, 500) ?? null;
+        const normalizedAvatar = normalizeAvatar(avatar) ?? currentUser.avatar ?? null;
+
         await pool.query(
             `UPDATE users SET 
                 first_name = $1,
@@ -71,14 +109,14 @@ export default {
                 avatar = $8
              WHERE id = $9`,
             [
-                first_name,
-                last_name,
-                email,
-                phone,
-                address,
+                normalizedFirstName,
+                normalizedLastName,
+                normalizedEmail,
+                normalizedPhone,
+                normalizedAddress,
                 formattedBirthDate,
                 gender,
-                avatar,
+                normalizedAvatar,
                 userId
             ]
         );
