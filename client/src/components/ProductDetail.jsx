@@ -610,7 +610,7 @@ const ProductDetail = () => {
                             </div>
 
                             <hr className="my-6 md:my-8 border-gray-200" />
-                            <p className="mb-6 text-gray-600">{product.tag}</p>
+                            <p className="mb-6 whitespace-pre-line break-words text-gray-600">{product.tag}</p>
                             <p className="text-gray-700">
                                 Hãy mua ngay chúng tôi luôn bán những sản phẩm tốt nhất trong
                                 thị trường hiện nay.

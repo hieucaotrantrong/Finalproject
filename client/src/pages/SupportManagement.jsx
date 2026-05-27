@@ -91,7 +91,7 @@ const SupportManagement = () => {
                                             : 'bg-green-500 text-white'
                                             }`}
                                     >
-                                        {request.status === 'pending' ? '⏳ Chờ phản hồi' : '✅ Đã phản hồi'}
+                                        {request.status === 'pending' ? ' Chờ phản hồi' : ' Đã phản hồi'}
                                     </span>
                                 </div>
                             </div>

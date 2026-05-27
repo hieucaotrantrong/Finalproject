@@ -17,6 +17,7 @@ import shippingRoutes from './routes/shipping';
 import warehouseRoutes from './routes/warehouse.routes';
 import discountRoutes from './routes/discount.routes';
 import http from 'http';
+import net from 'net';
 import { Server } from 'socket.io';
 /*------------------------------------
 Dotnev
@@ -78,9 +79,31 @@ app.use('/api/discounts', discountRoutes);
 /*------------------------------------
 Start Servers
 --------------------------------------*/
-server.listen(PORT, () => {
+const startServer = async () => {
+    const isPortAvailable = await new Promise<boolean>((resolve) => {
+        const tester = net.createServer();
 
-});
+        tester.once('error', () => {
+            resolve(false);
+        });
+
+        tester.once('listening', () => {
+            tester.close(() => resolve(true));
+        });
+
+        tester.listen(PORT);
+    });
+
+    if (!isPortAvailable) {
+        return;
+    }
+
+    server.listen(PORT, () => {
+        console.log(`Server is running on port ${PORT}`);
+    });
+};
+
+void startServer();
 
 /*------------------------------------
 Check connect Database

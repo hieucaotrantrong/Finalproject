@@ -3,15 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import Home from './Home';
 import Footers from './Footers';
-import Carousel from './Carousel';
-
-const SIDE_PREFIX = "side::";
-
-const isSideBanner = (imageUrl = "") => imageUrl.startsWith(SIDE_PREFIX);
-const toDisplayImageUrl = (imageUrl = "") => imageUrl.replace(SIDE_PREFIX, "");
 
 const CartPageView = () => {
-    const [sideBanner, setSideBanner] = useState(null);
     const navigate = useNavigate();
 
     const {
@@ -21,38 +14,6 @@ const CartPageView = () => {
         getTotalPrice,
         clearCart
     } = useCart();
-
-    useEffect(() => {
-        fetch("http://localhost:5000/api/banners")
-            .then(res => res.json())
-            .then(data => {
-                if (Array.isArray(data)) {
-                    const firstSideBanner = data.find((item) => isSideBanner(item.image_url));
-                    setSideBanner(firstSideBanner || null);
-                }
-            })
-            .catch(err => console.log("Lỗi fetch banner:", err));
-    }, []);
-
-    const resolveBannerSrc = (banner) => {
-        const cleanImageUrl = toDisplayImageUrl(banner?.image_url || "");
-
-        if (!cleanImageUrl) {
-            return "";
-        }
-
-        if (
-            cleanImageUrl.startsWith("http://") ||
-            cleanImageUrl.startsWith("https://") ||
-            cleanImageUrl.startsWith("/")
-        ) {
-            return cleanImageUrl;
-        }
-
-        return `/assets/${cleanImageUrl}`;
-    };
-
-    const sideBannerSrc = resolveBannerSrc(sideBanner);
 
     const formatPrice = (price) => {
         const numPrice = Math.floor(parseFloat(price));
@@ -93,30 +54,6 @@ const CartPageView = () => {
         <div className="min-h-screen bg-[#f1f2f4]">
 
             <Home />
-
-            {/* Side Banners */}
-            {sideBannerSrc && (
-                <>
-                    <div className="hidden xl:block fixed left-3 top-[190px] z-40">
-                        <img
-                            src={sideBannerSrc}
-                            alt="Left side banner"
-                            className="w-[110px] h-[330px] rounded-lg object-cover"
-                        />
-                    </div>
-
-                    <div className="hidden xl:block fixed right-3 top-[190px] z-40">
-                        <img
-                            src={sideBannerSrc}
-                            alt="Right side banner"
-                            className="w-[110px] h-[330px] rounded-lg object-cover"
-                        />
-                    </div>
-                </>
-            )}
-
-            {/* Carousel Banner */}
-            <Carousel />
 
             <div className="px-4 py-6">
                 <div className="mx-auto w-full max-w-[760px]">

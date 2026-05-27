@@ -344,15 +344,23 @@ const ChatBotIcon = () => {
 
                     <div className="flex-1 overflow-y-auto bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.9),rgba(246,246,248,1))] px-4 py-4">
                         <div className="space-y-3">
-                            {responses.map((res, index) => (
+                            {responses.map((res, index) => {
+                                const hasProductContent = !res.isUser && (
+                                    (Array.isArray(res.products) && res.products.length > 0)
+                                    || !!res.product?.id
+                                );
+
+                                return (
                                 <div key={index} className={`flex items-end gap-2 ${res.isUser ? 'justify-end' : 'justify-start'}`}>
                                     {!res.isUser && <ChatAvatar isUser={false} />}
 
                                     <div
-                                        className={`max-w-[86%] rounded-[20px] px-4 py-3 text-sm leading-6 shadow-sm ${
+                                        className={`text-sm leading-6 ${
                                             res.isUser
-                                                ? 'rounded-br-md bg-[#ffd400] text-gray-900'
-                                                : 'rounded-bl-md bg-white text-gray-800 border border-[#ececec]'
+                                                ? 'max-w-[86%] rounded-[20px] rounded-br-md bg-[#ffd400] px-4 py-3 text-gray-900 shadow-sm'
+                                                : hasProductContent
+                                                    ? 'max-w-[92%] bg-transparent p-0 text-gray-800 shadow-none'
+                                                    : 'max-w-[86%] rounded-[20px] rounded-bl-md border border-[#ececec] bg-white px-4 py-3 text-gray-800 shadow-sm'
                                         }`}
                                     >
                                         <MessageContent text={res.text} product={res.product} products={res.products} />
@@ -364,7 +372,8 @@ const ChatBotIcon = () => {
                                         </div>
                                     )}
                                 </div>
-                            ))}
+                                );
+                            })}
                             <div ref={messagesEndRef} />
                         </div>
                     </div>

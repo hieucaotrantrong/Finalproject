@@ -8,11 +8,6 @@ import { useCart } from "../context/CartContext";
 
 const API_BASE_URL = "http://localhost:5000/api";
 
-const SIDE_PREFIX = "side::";
-
-const isSideBanner = (imageUrl = "") => imageUrl.startsWith(SIDE_PREFIX);
-const toDisplayImageUrl = (imageUrl = "") => imageUrl.replace(SIDE_PREFIX, "");
-
 const normalizeLocationText = (value = "") => {
     return value
         .toLowerCase()
@@ -63,7 +58,6 @@ const CartPayPage = () => {
     const { clearCart } = useCart();
     const { cartItems, totalPrice, isMultipleItems, ...product } = location.state || {};
 
-    const [sideBanner, setSideBanner] = useState(null);
     const [fullName, setFullName] = useState("");
     const [email, setEmail] = useState("");
     const [phone, setPhone] = useState("");
@@ -88,37 +82,6 @@ const CartPayPage = () => {
     const [discountMessage, setDiscountMessage] = useState("");
     const [discountLoading, setDiscountLoading] = useState(false);
 
-    useEffect(() => {
-        fetch("http://localhost:5000/api/banners")
-            .then(res => res.json())
-            .then(data => {
-                if (Array.isArray(data)) {
-                    const firstSideBanner = data.find((item) => isSideBanner(item.image_url));
-                    setSideBanner(firstSideBanner || null);
-                }
-            })
-            .catch(err => console.log("Lỗi fetch banner:", err));
-    }, []);
-
-    const resolveBannerSrc = (banner) => {
-        const cleanImageUrl = toDisplayImageUrl(banner?.image_url || "");
-
-        if (!cleanImageUrl) {
-            return "/assets/bannerngang.png";
-        }
-
-        if (
-            cleanImageUrl.startsWith("http://") ||
-            cleanImageUrl.startsWith("https://") ||
-            cleanImageUrl.startsWith("/")
-        ) {
-            return cleanImageUrl;
-        }
-
-        return `/assets/${cleanImageUrl}`;
-    };
-
-    const sideBannerSrc = resolveBannerSrc(sideBanner);
     const lastSyncedAddressRef = useRef("");
 
     const syncAddressFromStorage = () => {
@@ -538,26 +501,7 @@ const CartPayPage = () => {
         <div className="min-h-screen bg-[#f1f2f4]">
             <Home />
 
-            {/* Side Banners */}
-            <div className="hidden xl:block fixed left-3 top-[190px] z-40">
-                <img
-                    src={sideBannerSrc}
-                    alt="Left side banner"
-                    className="w-[110px] h-[330px] rounded-lg object-cover"
-                />
-            </div>
-
-            <div className="hidden xl:block fixed right-3 top-[190px] z-40">
-                <img
-                    src={sideBannerSrc}
-                    alt="Right side banner"
-                    className="w-[110px] h-[330px] rounded-lg object-cover"
-                />
-            </div>
-
-            {/* Carousel Banner */}
-            <Carousel />
-
+           
             <div className="px-4 py-6">
                 <div className="mx-auto w-full max-w-[760px]">
                     <div className="space-y-4">

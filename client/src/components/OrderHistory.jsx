@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom';
 import { FaBox, FaTruck, FaCheckCircle, FaClock, FaTimesCircle, FaCalendarAlt, FaChevronRight } from 'react-icons/fa';
 import Home from './Home';
 import Footers from './Footers';
-import Carousel from './Carousel';
 import { connectSocket, onProductEvent, offProductEvent } from '../utils/socket';
 
 const formatVnd = (value) => {
@@ -161,8 +160,6 @@ const OrderHistory = () => {
     return (
         <div className="bg-[#f0f2f5] min-h-screen">
             <Home />
-
-            <Carousel />
 
             <div className="max-w-6xl mx-auto px-4 py-6">
                 

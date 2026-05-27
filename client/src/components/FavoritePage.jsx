@@ -5,11 +5,6 @@ import Carousel from "./Carousel";
 import { useCart } from "../context/CartContext";
 import CartItem from "./CartItem";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/20/solid";
-
-const SIDE_PREFIX = "side::";
-
-const isSideBanner = (imageUrl = "") => imageUrl.startsWith(SIDE_PREFIX);
-const toDisplayImageUrl = (imageUrl = "") => imageUrl.replace(SIDE_PREFIX, "");
 const normalizeOutOfStock = (value) => value === true || value === 1 || value === "1" || value === "true";
 const normalizeStockQuantity = (value) => {
     const qty = Number(value);
@@ -22,7 +17,6 @@ const isProductOutOfStock = (product) => {
 
 const FavoritePage = () => {
     const [favorites, setFavorites] = useState([]);
-    const [sideBanner, setSideBanner] = useState(null);
     const { addToCart } = useCart();
     const carouselRef = useRef(null);
 
@@ -66,38 +60,6 @@ const FavoritePage = () => {
         syncFavorites();
     }, []);
 
-    useEffect(() => {
-        fetch("http://localhost:5000/api/banners")
-            .then(res => res.json())
-            .then(data => {
-                if (Array.isArray(data)) {
-                    const firstSideBanner = data.find((item) => isSideBanner(item.image_url));
-                    setSideBanner(firstSideBanner || null);
-                }
-            })
-            .catch(err => console.log("Lỗi fetch banner:", err));
-    }, []);
-
-    const resolveBannerSrc = (banner) => {
-        const cleanImageUrl = toDisplayImageUrl(banner?.image_url || "");
-
-        if (!cleanImageUrl) {
-            return "/assets/bannerngang.png";
-        }
-
-        if (
-            cleanImageUrl.startsWith("http://") ||
-            cleanImageUrl.startsWith("https://") ||
-            cleanImageUrl.startsWith("/")
-        ) {
-            return cleanImageUrl;
-        }
-
-        return `/assets/${cleanImageUrl}`;
-    };
-
-    const sideBannerSrc = resolveBannerSrc(sideBanner);
-
     const handleRemove = (id) => {
         const updated = favorites.filter((item) => item.id !== id);
         setFavorites(updated);
@@ -134,23 +96,6 @@ const FavoritePage = () => {
     return (
         <div className="min-h-screen bg-gray-50">
             <Home />
-
-            {/* Side Banners */}
-            <div className="hidden xl:block fixed left-3 top-[190px] z-40">
-                <img
-                    src={sideBannerSrc}
-                    alt="Left side banner"
-                    className="w-[110px] h-[330px] rounded-lg object-cover"
-                />
-            </div>
-
-            <div className="hidden xl:block fixed right-3 top-[190px] z-40">
-                <img
-                    src={sideBannerSrc}
-                    alt="Right side banner"
-                    className="w-[110px] h-[330px] rounded-lg object-cover"
-                />
-            </div>
 
             {/* Carousel Banner */}
             <Carousel />
