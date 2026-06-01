@@ -30,7 +30,7 @@ const Profile = () => {
     const navigate = useNavigate();
 
     useEffect(() => {
-        const savedUser = localStorage.getItem('user');
+        const savedUser = sessionStorage.getItem('user');
         if (savedUser) {
             const userData = JSON.parse(savedUser);
             setUser(userData);
@@ -73,12 +73,12 @@ const Profile = () => {
         setIsLoading(true);
 
         try {
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             const response = await axios.put('http://localhost:5000/api/auth/profile', formData, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            localStorage.setItem('user', JSON.stringify(response.data.user));
+            sessionStorage.setItem('user', JSON.stringify(response.data.user));
             setUser(response.data.user);
             toast.success('Cập nhật thông tin thành công!');
         } catch (error) {
@@ -98,7 +98,7 @@ const Profile = () => {
         setIsLoading(true);
 
         try {
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             await axios.put('http://localhost:5000/api/auth/change-password', passwordData, {
                 headers: { Authorization: `Bearer ${token}` }
             });

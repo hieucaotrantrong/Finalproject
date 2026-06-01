@@ -41,8 +41,8 @@ const CartItem = ({ id, image, title, originalprice, price, discount, sold, rati
             return;
         }
 
-        const token = localStorage.getItem("token");
-        const savedAddress = localStorage.getItem('userAddress') || '';
+            const token = sessionStorage.getItem("token");
+            const savedAddress = localStorage.getItem('userAddress') || '';
 
         const productState = {
             id,

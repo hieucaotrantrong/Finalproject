@@ -98,8 +98,8 @@ const [specs, setSpecs] = useState([
     const handleLogout = () => {
         const confirmLogout = window.confirm('Bạn có chắc chắn muốn đăng xuất không?');
         if (confirmLogout) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
+            sessionStorage.removeItem('token');
+            sessionStorage.removeItem('user');
             navigate('/');
         }
     };

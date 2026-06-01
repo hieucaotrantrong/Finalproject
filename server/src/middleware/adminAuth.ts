@@ -30,7 +30,7 @@ export const adminAuth = async (
 
         const userRole = userResult.rows[0]?.role;
 
-        // 🔒 Kiểm tra quyền admin từ dữ liệu user thật trong DB
+        //  Kiểm tra quyền admin từ dữ liệu user thật trong DB
         if (userRole !== 'admin') {
             res.status(403).json({ error: 'Bạn không có quyền truy cập admin' });
             return;

@@ -93,8 +93,11 @@ const CartPayPage = () => {
         lastSyncedAddressRef.current = latest;
         setAddress(latest);
     };
+/*------------------------------------------
+Load địa chỉ từ localStorage nếu không có trong
+ state
+---------------------------------------------*/
 
-    // Load địa chỉ từ localStorage nếu không có trong state
     useEffect(() => {
         const savedAddress = localStorage.getItem('userAddress');
         if (savedAddress) {
@@ -102,13 +105,13 @@ const CartPayPage = () => {
             lastSyncedAddressRef.current = savedAddress;
         }
 
-        const savedUser = JSON.parse(localStorage.getItem('user') || '{}');
-        const savedEmail = localStorage.getItem('userEmail') || savedUser?.email || '';
+        const savedUser = JSON.parse(sessionStorage.getItem('user') || '{}');
+        const savedEmail = sessionStorage.getItem('userEmail') || savedUser?.email || '';
         const savedName = [savedUser?.first_name, savedUser?.last_name].filter(Boolean).join(' ').trim();
 
         if (savedEmail) {
             setEmail(savedEmail);
-            localStorage.setItem('userEmail', savedEmail);
+            sessionStorage.setItem('userEmail', savedEmail);
         }
 
         if (savedName) {
@@ -156,7 +159,12 @@ const CartPayPage = () => {
     };
 
     const getTotalAmount = () => {
-        return isMultipleItems ? totalPrice : product?.price;
+        if (isMultipleItems) {
+            // totalPrice provided by location.state when multiple items
+            return Number(totalPrice || 0);
+        }
+        // single product page
+        return Number(product?.price || 0);
     };
 
     const getGrandTotal = () => {
@@ -177,7 +185,7 @@ const CartPayPage = () => {
         setDiscountLoading(true);
         setDiscountMessage("");
         try {
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             const response = await axios.post(
                 `${API_BASE_URL}/discounts/verify`,
                 {
@@ -190,12 +198,12 @@ const CartPayPage = () => {
                     }
                 }
             );
+
             setDiscountInfo(response.data);
-            setDiscountMessage(` Áp dụng mã giảm giá thành công! Tiết kiệm ${formatPrice(response.data.discount_amount)}₫`);
+            setDiscountMessage(`Áp dụng mã giảm giá thành công! Tiết kiệm ${formatPrice(response.data.discount_amount)}`);
         } catch (err) {
             const errorMsg = err?.response?.data?.error || "Lỗi xác minh mã giảm giá";
             setDiscountMessage(errorMsg);
-            setDiscountInfo(null);
         } finally {
             setDiscountLoading(false);
         }
@@ -367,7 +375,7 @@ const CartPayPage = () => {
         const paymentReturnUrl = `${window.location.origin}/orders`;
 
         try {
-            const token = localStorage.getItem('token'); // Thêm dòng này
+            const token = sessionStorage.getItem('token'); // Thêm dòng này
 
             if (isMultipleItems) {
                 // Xử lý đơn từ giỏ hàng

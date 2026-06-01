@@ -24,9 +24,9 @@ export default function Login() {
 
             const { token, user } = response.data;
 
-            localStorage.setItem("token", token);
-            localStorage.setItem("user", JSON.stringify(user));
-            localStorage.setItem("userEmail", user.email);
+            sessionStorage.setItem("token", token);
+            sessionStorage.setItem("user", JSON.stringify(user));
+            sessionStorage.setItem("userEmail", user.email);
 
             // ===== THÊM PHẦN NÀY =====
             const redirect = location.state?.redirect;
@@ -159,9 +159,9 @@ export default function Login() {
 
                                                     const { token, user } = res.data;
 
-                                                    localStorage.setItem("token", token);
-                                                    localStorage.setItem("user", JSON.stringify(user));
-                                                    localStorage.setItem("userEmail", user.email);
+                                                    sessionStorage.setItem("token", token);
+                                                    sessionStorage.setItem("user", JSON.stringify(user));
+                                                    sessionStorage.setItem("userEmail", user.email);
 
                                                     // ===== thêm redirect =====
                                                     const redirect = location.state?.redirect;

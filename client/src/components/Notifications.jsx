@@ -15,8 +15,8 @@ const Notifications = () => {
     const fetchNotifications = async () => {
         try {
             const userEmail =
-                localStorage.getItem('userEmail') ||
-                JSON.parse(localStorage.getItem('user') || '{}')?.email;
+                sessionStorage.getItem('userEmail') ||
+                JSON.parse(sessionStorage.getItem('user') || '{}')?.email;
 
             if (!userEmail) return;
 
@@ -24,8 +24,7 @@ const Notifications = () => {
 
             const newNotifications = Array.isArray(response.data) ? response.data : [];
             
-            // Filter để chỉ show thông báo từ admin (không show thông báo cho user là customer)
-            // Nếu thông báo chứa từ "đơn hàng", "hỗ trợ" thì là cho admin
+           
             const adminNotifications = newNotifications.filter(n => 
                 !n.title.toLowerCase().includes('phản hồi cho yêu cầu') &&
                 !n.message.toLowerCase().includes('cập nhật đơn hàng của bạn')
@@ -62,8 +61,10 @@ const Notifications = () => {
             fetchNotifications();
         }
     }, [isOpen]);
+/*----------------------------------
+CLICK OUTSIDE
+-----------------------------------*/
 
-    // ================= CLICK OUTSIDE =================
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -74,8 +75,10 @@ const Notifications = () => {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
-
-    // ================= HOVER DELAY =================
+/*----------------------------------
+HOVER DELAY
+-----------------------------------*/
+   
     const handleMouseEnter = () => {
         clearTimeout(timeoutRef.current);
         fetchNotifications();
@@ -85,10 +88,12 @@ const Notifications = () => {
     const handleMouseLeave = () => {
         timeoutRef.current = setTimeout(() => {
             setIsOpen(false);
-        }, 300); // delay 300ms để có "cầu"
+        }, 300); 
     };
-
-    // ================= MARK READ =================
+/*----------------------------------
+MARK READ
+-----------------------------------*/
+ 
     const handleMarkAsRead = async (id) => {
         try {
             await axios.put(`http://localhost:5000/api/notifications/${id}/read`);
@@ -104,7 +109,7 @@ const Notifications = () => {
         }
     };
 
-    // ================= MARK ALL AS READ =================
+
     const handleMarkAllAsRead = async () => {
         const unreadIds = notifications.filter(n => !n.is_read).map(n => n.id);
         if (unreadIds.length === 0) return;

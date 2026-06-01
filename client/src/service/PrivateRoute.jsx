@@ -7,8 +7,8 @@ const PrivateRoute = ({ children, adminRequired = false }) => {
     const [loading, setLoading] = useState(true);
     const [isValid, setIsValid] = useState(false);
 
-    const token = localStorage.getItem('token');
-    const userRaw = localStorage.getItem('user');
+    const token = sessionStorage.getItem('token');
+    const userRaw = sessionStorage.getItem('user');
     const user = userRaw ? JSON.parse(userRaw) : null;
 
     const isAuthenticated = !!token && token.trim() !== '';
@@ -34,14 +34,14 @@ const PrivateRoute = ({ children, adminRequired = false }) => {
                 setIsValid(verified);
 
                 if (!verified) {
-                    localStorage.removeItem('token');
-                    localStorage.removeItem('user');
-                    localStorage.removeItem('userEmail');
+                    sessionStorage.removeItem('token');
+                    sessionStorage.removeItem('user');
+                    sessionStorage.removeItem('userEmail');
                 }
             } catch (error) {
                 console.error('Token verify error:', error);
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
+                sessionStorage.removeItem('token');
+                sessionStorage.removeItem('user');
                 localStorage.removeItem('userEmail');
                 setIsValid(false);
             } finally {

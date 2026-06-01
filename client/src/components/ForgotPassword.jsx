@@ -95,8 +95,11 @@ export default function ForgotPassword() {
       alert("Vui lòng nhập đầy đủ!");
       return;
     }
+    /*----------------------------------
+    newPassword phải >= 6 
+    ký tự và phải khớp với confirmPassword
+  -----------------------------------*/
 
-    // ✅ THÊM VALIDATE (KHÔNG ĐỔI GÌ KHÁC)
     if (newPassword.length < 6) {
       alert("Mật khẩu phải >= 6 ký tự!");
       return;
@@ -127,8 +130,10 @@ export default function ForgotPassword() {
       alert("Lỗi reset password!");
     }
   };
-
-  // ===== THÊM (KHÔNG ẢNH HƯỞNG UI) =====
+  /*----------------------------------
+  
+  -----------------------------------*/
+ 
   const [passwordError, setPasswordError] = useState("");
   const [confirmError, setConfirmError] = useState("");
 

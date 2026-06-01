@@ -72,7 +72,7 @@ const RevenueManagement = () => {
         const doc = new jsPDF();
         const reportDate = formatDate(new Date());
         const startFilter = fromDate ? formatDate(fromDate) : 'Tất cả';
-        const endFilter = toDate ? formatDate(toDate) : 'ất cả';
+        const endFilter = toDate ? formatDate(toDate) : 'tất cả';
 
         doc.setFontSize(16);
         doc.text('Báo cáo doanh thu', 14, 16);
@@ -121,7 +121,7 @@ const RevenueManagement = () => {
             setLoading(true);
             setError('');
 
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             const params = {};
 
             if (nextFrom) params.from = nextFrom;

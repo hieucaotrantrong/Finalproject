@@ -93,7 +93,7 @@ export default function SupportPage() {
                 setError(result.error || "Gửi thất bại. Vui lòng thử lại.");
             }
         } catch (err) {
-            console.error("❌ Lỗi:", err);
+            console.error(" Lỗi:", err);
             setError("Không thể kết nối đến server.");
         }
     };

@@ -193,7 +193,7 @@ export default function CategoryGrid() {
 
                 </div>
 
-              {/* 6 sản phẩm đầu - Thêm grid để cố định kích thước khi ít sản phẩm */}
+              {/* 6 sản phẩm đầu  */}
 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 pb-2">
     {firstProducts.map((product) => (
         <CartItem
@@ -204,7 +204,7 @@ export default function CategoryGrid() {
             originalprice={product.originalprice}
             price={product.price}
             discount={product.discount}
-            sold={product.sold} // Đừng quên truyền sold nếu CartItem cần nhé
+            sold={product.sold} 
             rating={product.average_rating ?? product.rating ?? 0}
             is_out_of_stock={product.is_out_of_stock}
             stock_quantity={product.stock_quantity}

@@ -53,7 +53,7 @@ const OrderManagement = () => {
     -----------------------------------*/
     const fetchOrders = async () => {
         try {
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             const response = await axios.get('http://localhost:5000/api/orders', {
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -71,7 +71,7 @@ const OrderManagement = () => {
     -----------------------------------*/
     const handleUpdateStatus = async (orderId, newStatus) => {
         try {
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             const response = await axios.put(
                 `http://localhost:5000/api/orders/${orderId}`,
                 { status: newStatus },

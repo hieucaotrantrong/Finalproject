@@ -189,8 +189,8 @@ const DiscountManagement = () => {
 
   const formatCurrency = (value) => {
     return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
+      // format as number with thousands separator (no currency symbol)
+      style: "decimal",
     }).format(value || 0);
   };
 
@@ -271,16 +271,16 @@ const DiscountManagement = () => {
           <div>
             <label className="block text-sm font-semibold mb-2 text-gray-800">Giá Trị Tối Thiểu (đ)</label>
             <input
-              type="number"
-              value={form.min_amount}
+              type="text"
+              value={form.min_amount ? formatCurrency(Number(form.min_amount)) : ''}
               onChange={(e) => {
-                setForm({ ...form, min_amount: e.target.value });
+                // Keep only digits when typing
+                const digits = e.target.value.replace(/\D/g, '');
+                setForm({ ...form, min_amount: digits ? Number(digits) : '' });
                 if (formErrors.min_amount) setFormErrors({ ...formErrors, min_amount: "" });
               }}
               placeholder="VD: 500000"
               className={`${inputClass} ${formErrors.min_amount ? "border-rose-500 ring-1 ring-rose-300" : ""}`}
-              min="0"
-              step="1000"
             />
             <p className="text-xs text-gray-500 mt-1">Áp dụng cho đơn hàng từ mức này trở lên.</p>
           </div>

@@ -11,7 +11,7 @@ const SupportManagement = () => {
     // Fetch danh sách hỗ trợ
     const fetchRequests = async () => {
         try {
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             const response = await axios.get('http://localhost:5000/api/support', {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -31,7 +31,7 @@ const SupportManagement = () => {
     // Gửi phản hồi
     const handleReply = async (requestId) => {
         try {
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             await axios.post(
                 `http://localhost:5000/api/support/${requestId}/reply`,
                 { reply },

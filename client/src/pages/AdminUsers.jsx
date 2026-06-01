@@ -21,7 +21,7 @@ const AdminUsers = () => {
 
     const fetchUsers = async () => {
         try {
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             const res = await axios.get('http://localhost:5000/api/admin/users', {
                 headers: token ? { Authorization: `Bearer ${token}` } : {}
             });
@@ -54,7 +54,7 @@ const AdminUsers = () => {
 
     const saveEdit = async (id) => {
         try {
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             await axios.put(`http://localhost:5000/api/admin/users/${id}`, form, {
                 headers: token ? { Authorization: `Bearer ${token}` } : {}
             });
@@ -70,7 +70,7 @@ const AdminUsers = () => {
     const handleDelete = async (id) => {
         if (!window.confirm('Xác nhận xoá người dùng?')) return;
         try {
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             await axios.delete(`http://localhost:5000/api/admin/users/${id}`, {
                 headers: token ? { Authorization: `Bearer ${token}` } : {}
             });
@@ -85,7 +85,7 @@ const AdminUsers = () => {
     const createUser = async (e) => {
         e.preventDefault();
         try {
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             await axios.post('http://localhost:5000/api/admin/users', newUser, {
                 headers: token ? { Authorization: `Bearer ${token}` } : {}
             });

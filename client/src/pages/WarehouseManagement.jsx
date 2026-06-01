@@ -93,7 +93,7 @@ const WarehouseManagement = () => {
         byProduct: []
     });
 
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
 
     const headers = useMemo(() => ({
         Authorization: `Bearer ${token}`,

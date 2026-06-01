@@ -6,10 +6,12 @@ export default function MallSection() {
 
     const [products, setProducts] = useState([]);
     const [currentIndex, setCurrentIndex] = useState(0);
-
-    // Hiển thị sản phẩm đặc quyền: chỉ sản phẩm bán chạy hoặc đánh giá cao
-    const SOLD_THRESHOLD = 100; // sản phẩm đã bán >= 100
-    const RATING_THRESHOLD = 4.5; // đánh giá trung bình >= 4.5
+/*----------------------------------
+list products đặc quyền: dựa
+ vào lượt bán và đánh giá
+-----------------------------------*/
+    const SOLD_THRESHOLD = 100; 
+    const RATING_THRESHOLD = 4.5; 
 
     const fetchProducts = () => {
         fetch("http://localhost:5000/api/products")
@@ -21,9 +23,18 @@ export default function MallSection() {
                     const rating = Number(p.average_rating ?? p.rating ?? 0);
                     return sold >= SOLD_THRESHOLD || rating >= RATING_THRESHOLD;
                 });
-                // sắp xếp theo lượt bán rồi đánh giá
+/*----------------------------------
+sắp xếp theo lượt bán rồi đánh giá
+-----------------------------------*/
+
                 featured.sort((a, b) => (Number(b.sold || 0) - Number(a.sold || 0)) || (Number(b.average_rating ?? 0) - Number(a.average_rating ?? 0)));
-                setProducts(featured);
+                if (featured.length === 0) {
+                   
+                    const fallback = all.slice().sort((a, b) => (Number(b.sold || 0) - Number(a.sold || 0))).slice(0, 8);
+                    setProducts(fallback);
+                } else {
+                    setProducts(featured);
+                }
             })
             .catch(err => console.log(err));
     };
@@ -53,7 +64,6 @@ export default function MallSection() {
     };
 
     return (
-
         <div className="max-w-7xl mx-auto px-4 py-6">
 
             <div className="bg-white p-4 shadow rounded-md border border-gray-200">

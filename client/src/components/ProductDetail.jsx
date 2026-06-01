@@ -304,7 +304,7 @@ const ProductDetail = () => {
 
                 const defaultImg = routeImage ? getImageSrc(routeImage) : (images.length > 0 ? getImageSrc(images[0]) : getImageSrc(res.data.image));
 
-                // Chỉ set ảnh mặc định nếu user chưa chọn thumbnail (để tránh tự động revert)
+   
                 if (!userSelectedImageRef.current) {
                     setSelectedImage(defaultImg);
                 }
@@ -440,12 +440,12 @@ const ProductDetail = () => {
             const updated = favorites.filter((item) => item.id !== product.id);
             localStorage.setItem("favorites", JSON.stringify(updated));
             setIsFavorite(false);
-            alert(`❌ Đã xóa "${product.title}" khỏi danh sách yêu thích.`);
+            alert(` Đã xóa "${product.title}" khỏi danh sách yêu thích.`);
         } else {
             favorites.push(product);
             localStorage.setItem("favorites", JSON.stringify(favorites));
             setIsFavorite(true);
-            alert(`💛 Đã thêm "${product.title}" vào danh sách yêu thích.`);
+            alert(`Đã thêm "${product.title}" vào danh sách yêu thích.`);
         }
     };
 

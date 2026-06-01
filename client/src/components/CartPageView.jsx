@@ -19,11 +19,13 @@ const CartPageView = () => {
         const numPrice = Math.floor(parseFloat(price));
         return numPrice.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     };
-
-    // 🔐 kiểm tra login trước khi thanh toán
+/*------------------------------------------
+check login before payment
+---------------------------------------------*/
+   
     const handleCheckout = () => {
 
-        const token = localStorage.getItem("token");
+        const token = sessionStorage.getItem("token");
 
         if (!token) {
             alert("Vui lòng đăng nhập để thanh toán");
@@ -38,8 +40,10 @@ const CartPageView = () => {
 
             return;
         }
-
-        // nếu đã login
+/*------------------------------------------
+if logged in, proceed to payment
+---------------------------------------------*/
+   
         navigate('/cartpay', {
             state: {
                 cartItems: cartItems,

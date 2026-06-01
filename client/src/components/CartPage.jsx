@@ -45,34 +45,46 @@ const CartPage = ({ searchQuery = '', categoryFilter = '' }) => {
         fetchProducts();
     }, []);
 
-    // Listen to real-time product updates from admin
+
+    /*------------------------------------------
+    Listen to real-time product updates from admin
+    ---------------------------------------------*/
     useEffect(() => {
         connectSocket();
 
-        // When admin adds product
+    /*------------------------------------------
+    When admin adds product
+    ---------------------------------------------*/
+        // 
         onProductEvent('productAdded', (data) => {
             console.log(' Sản phẩm mới:', data);
             fetchProducts();
             if (data.message) toast.success(data.message);
         });
-
-        // When admin updates product
+  /*------------------------------------------
+     When admin updates product
+    ---------------------------------------------*/
+        //
         onProductEvent('productUpdated', (data) => {
             console.log(' Cập nhật sản phẩm:', data);
             fetchProducts();
             if (data.message) toast.info(data.message);
         });
-
-        // When admin deletes product
+ /*------------------------------------------
+     When admin deletes product
+    ---------------------------------------------*/
+   
         onProductEvent('productDeleted', (data) => {
             console.log(' Xóa sản phẩm:', data);
             fetchProducts();
             if (data.message) toast.warning(data.message);
         });
+/*------------------------------------------
+  When stock status changes
+---------------------------------------------*/
 
-        // When stock status changes
         onProductEvent('stockStatusChanged', (data) => {
-            console.log('📦 Thay đổi tình trạng kho:', data);
+            console.log(' Thay đổi tình trạng kho:', data);
             fetchProducts();
             if (data.message) toast.warning(data.message);
         });

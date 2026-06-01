@@ -88,7 +88,7 @@ const OrderHistory = () => {
         connectSocket();
 
         const handleOrderChanged = (data) => {
-            const currentUserEmail = localStorage.getItem('userEmail') || JSON.parse(localStorage.getItem('user') || '{}')?.email;
+            const currentUserEmail = sessionStorage.getItem('userEmail') || JSON.parse(sessionStorage.getItem('user') || '{}')?.email;
 
             if (!data?.email || !currentUserEmail || String(data.email).toLowerCase() === String(currentUserEmail).toLowerCase()) {
                 fetchUserOrders();
@@ -104,8 +104,8 @@ const OrderHistory = () => {
 
     const fetchUserOrders = async () => {
         try {
-            const token = localStorage.getItem('token');
-            const userEmail = localStorage.getItem('userEmail') || JSON.parse(localStorage.getItem('user') || '{}')?.email;
+            const token = sessionStorage.getItem('token');
+            const userEmail = sessionStorage.getItem('userEmail') || JSON.parse(sessionStorage.getItem('user') || '{}')?.email;
             if (!token || !userEmail) {
                 setError('Vui lòng đăng nhập để xem lịch sử đơn hàng');
                 setLoading(false);
@@ -126,7 +126,7 @@ const OrderHistory = () => {
         if (!window.confirm('Bạn có chắc muốn hủy đơn hàng này không?')) return;
         try {
             await axios.put(`http://localhost:5000/api/orders/user/${orderId}/cancel`, {}, {
-                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+                headers: { Authorization: `Bearer ${sessionStorage.getItem('token')}` }
             });
             fetchUserOrders();
         } catch (err) {
@@ -138,7 +138,7 @@ const OrderHistory = () => {
         if (!window.confirm('Bạn có chắc muốn xóa đơn hàng này khỏi lịch sử không?')) return;
         try {
             await axios.delete(`http://localhost:5000/api/orders/user/${orderId}`, {
-                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+                headers: { Authorization: `Bearer ${sessionStorage.getItem('token')}` }
             });
             fetchUserOrders();
         } catch (err) {

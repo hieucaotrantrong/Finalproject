@@ -2,8 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { FaHeart } from "react-icons/fa";
-
-import { ChevronDownIcon, PhoneIcon, PlayCircleIcon } from '@heroicons/react/20/solid';
 import Notifications from './Notifications';
 import CartPage from './CartPage';
 
@@ -109,7 +107,7 @@ export default function Home({ onFilterChange }) {
     }, [searchQuery, selectedCategory, onFilterChange]);
 
     useEffect(() => {
-        const savedUser = localStorage.getItem('user');
+        const savedUser = sessionStorage.getItem('user');
         if (savedUser) {
             setUser(JSON.parse(savedUser));
         }
@@ -225,52 +223,6 @@ export default function Home({ onFilterChange }) {
             setWards(data?.data || []);
         } catch (error) {
             console.error('Error fetching wards:', error);
-        }
-    };
-
-    const handleProvinceChange = (e) => {
-        const provinceCode = e.target.value;
-        setSelectedProvince(provinceCode);
-        setSelectedDistrict('');
-        setSelectedWard('');
-        if (provinceCode) {
-            fetchDistricts(provinceCode);
-        } else {
-            setDistricts([]);
-            setWards([]);
-        }
-    };
-
-    const handleDistrictChange = (e) => {
-        const districtCode = e.target.value;
-        setSelectedDistrict(districtCode);
-        setSelectedWard('');
-        if (districtCode) {
-            fetchWards(districtCode);
-        } else {
-            setWards([]);
-        }
-    };
-
-    const handleWardChange = (e) => {
-        setSelectedWard(e.target.value);
-    };
-
-    const handleSaveAddress = () => {
-        if (selectedProvince && selectedDistrict && selectedWard) {
-            const province = provinces.find((p) => getLocationId(p, 'province') === String(selectedProvince));
-            const district = districts.find((d) => getLocationId(d, 'district') === String(selectedDistrict));
-            const ward = wards.find((w) => getLocationId(w, 'ward') === String(selectedWard));
-
-            const newAddress = `${getLocationName(ward)}, ${getLocationName(district)}, ${getLocationName(province)}`;
-            const fullAddress = newAddress;
-            const displayAddress = newAddress.length > 25 ? newAddress.substring(0, 25) + '...' : newAddress;
-
-            setCurrentAddress(displayAddress);
-
-            localStorage.setItem('userAddress', fullAddress);
-
-            setShowLocationModal(false);
         }
     };
 

@@ -84,8 +84,9 @@ export default function Header({ initialSearchQuery = '', onSearchSubmit, onCate
             })
             .catch(() => setTopBannerUrl(""));
     }, []);
-
-    // Click outside close dropdown
+/*----------------------------------
+Click outside close dropdown
+-----------------------------------*/
     useEffect(() => {
 
         const handleClickOutside = (event) => {

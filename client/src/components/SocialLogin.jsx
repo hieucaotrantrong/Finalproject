@@ -9,14 +9,14 @@ function SocialLogin() {
 
     if (token) {
 
-      localStorage.setItem("token", token);
+      sessionStorage.setItem("token", token);
 
       const user = jwtDecode(token);
 
-      localStorage.setItem("user", JSON.stringify(user));
+      sessionStorage.setItem("user", JSON.stringify(user));
 
       if (user?.email) {
-        localStorage.setItem("userEmail", user.email);
+        sessionStorage.setItem("userEmail", user.email);
       }
 
       window.location.href = "/home";

@@ -86,8 +86,8 @@ export default function Footers() {
 
                 <div className="mt-8 border-t border-gray-100 pt-8">
                     <div className="sm:flex sm:justify-between">
-                        <p className="text-xs text-gray-500">© 2018. Công ty cổ phần Thế Giới Di Động. GPDKKD: 0303217354 do sở KH & ĐT TP.HCM cấp ngày 02/01/2007. GPMXH: 238/GP-BTTTT do Bộ Thông Tin và Truyền Thông cấp ngày 04/06/2020.
-                            Địa chỉ: 128 Trần Quang Khải, P.Tân Định, Q.1, TP.Hồ Chí Minh. Địa chỉ liên hệ và gửi chứng từ: Lô T2-1.2, Đường D1, Đ. D1, P.Tân Phú, TP.Thủ Đức, TP.Hồ Chí Minh. Điện thoại: 028 38125960. Email: cskh@thegioididong.com. Chịu trách nhiệm nội dung: Huỳnh Văn Tốt. Email: hotrotmdt@thegioididong.com. Xem chính sách sử dụng</p>
+                        <p className="text-xs text-gray-500">© 2018. Công ty cổ phần Thế Giới Công Nghệ. GPDKKD: 0303217354 do sở KH & ĐT TP.HCM cấp ngày 02/01/2007. GPMXH: 238/GP-BTTTT do Bộ Thông Tin và Truyền Thông cấp ngày 04/06/2020.
+                            Địa chỉ: 33 Xô Viết Nghệ Tĩnh, P.Hải Châu, TP. Đà Nẵng. Địa chỉ liên hệ và gửi chứng từ: 33 Xô Viết nghệ Tĩnh, Đường D1, Đ. D1, P.Hải Châu, TP.Đà Nẵng. Điện thoại: 028 38125960. Email: cskh@thegioicongnghe.com. Chịu trách nhiệm nội dung: Cao Trần Trọng Hiếu. Email: hotrotmdt@thegioicongnghe.com. Xem chính sách sử dụng</p>
                     </div>
                 </div>
             </div>
