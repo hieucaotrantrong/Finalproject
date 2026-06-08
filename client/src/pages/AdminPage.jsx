@@ -43,7 +43,7 @@ const [specs, setSpecs] = useState([
     const [specsImage, setSpecsImage] = useState('');
     const [popup, setPopup] = useState({ show: false, message: '', type: 'success' });
 
-    // ✅ Show popup
+    //  Show popup
     const showPopup = (message, type = 'success') => {
         setPopup({ show: true, message, type });
     };
@@ -162,7 +162,7 @@ const [specs, setSpecs] = useState([
 const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // ❌ chặn form rỗng
+    //  chặn form rỗng
     if (!form.title || !form.originalprice || !form.price) {
         showPopup("Vui lòng nhập đầy đủ thông tin!", "error");
         return;
@@ -191,12 +191,12 @@ const handleSubmit = async (e) => {
                 if (editingProduct) {
                     emitProductEvent('productUpdated', { 
                         product: formData, 
-                        message: `🔄 Admin vừa cập nhật sản phẩm: ${formData.title}` 
+                        message: ` Admin vừa cập nhật sản phẩm: ${formData.title}` 
                     });
                 } else {
                     emitProductEvent('productAdded', { 
                         product: formData, 
-                        message: `✅ Admin vừa thêm sản phẩm mới: ${formData.title}` 
+                        message: ` Admin vừa thêm sản phẩm mới: ${formData.title}` 
                     });
                 }
         }
@@ -254,7 +254,7 @@ setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
                     emitProductEvent('stockStatusChanged', { 
                         productId: id, 
                         is_out_of_stock: nextStatus,
-                        message: nextStatus ? '⚠️ Sản phẩm hết hàng' : '✅ Sản phẩm có hàng lại'
+                        message: nextStatus ? ' Sản phẩm hết hàng' : ' Sản phẩm có hàng lại'
                     });
         } catch (error) {
             console.error('Lỗi khi cập nhật trạng thái hết hàng:', error);
@@ -767,7 +767,7 @@ setSpecs([{ group_name: '', spec_key: '', spec_value: '' }]);
                 </main>
             </div>
 
-            {/* ✅ Popup thông báo kiểu alert */}
+            {/*  Popup thông báo kiểu alert */}
           {popup.show && (
   <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[9999]">
     <div

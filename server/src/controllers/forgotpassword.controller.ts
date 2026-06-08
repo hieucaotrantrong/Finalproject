@@ -10,7 +10,7 @@ const generateOTP = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
-// 1️⃣ gửi OTP
+// 1️ gửi OTP
 export const forgotPassword = async (req: Request, res: Response) => {
 
   const { email } = req.body;
@@ -86,7 +86,7 @@ export const verifyOTP = (req: Request, res: Response) => {
 };
 
 
-// 3️⃣ reset password
+// 3 reset password
 export const resetPassword = async (req: Request, res: Response) => {
 
   const { email, newPassword } = req.body;

@@ -264,7 +264,7 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
             }
         }
 
-        // 🔥 3. update specs
+        // 3. update specs
         if (Array.isArray(specs)) {
             await client.query('DELETE FROM product_specs WHERE product_id = $1', [id]);
 

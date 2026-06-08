@@ -233,7 +233,8 @@ Click outside close dropdown
 
             {topBannerUrl && (
                 <div className="w-full bg-[#fbc219] border-b border-[#f2b700]">
-                    <div className="w-full max-w-[1280px] mx-auto px-4 py-0">
+                    <div className="w-full max-w-[1280p
+                    x] mx-auto px-4 py-0">
                         <img
                             src={topBannerUrl}
                             alt="Top header banner"

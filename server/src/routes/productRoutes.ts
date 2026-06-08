@@ -31,7 +31,7 @@ router.post('/', asyncHandler(async (req: any, res: any) => {
     await createProduct(req, res);
     if (res.statusCode === 200 || res.statusCode === 201) {
         const product = res.locals.product || req.body;
-        io.emit('productAdded', { product, message: `✅ Admin vừa thêm sản phẩm: ${product.title}` });
+        io.emit('productAdded', { product, message: ` Admin vừa thêm sản phẩm: ${product.title}` });
     }
 }));
 
@@ -40,7 +40,7 @@ router.put('/:id', asyncHandler(async (req: any, res: any) => {
     await updateProduct(req, res);
     if (res.statusCode === 200) {
         const product = res.locals.product || req.body;
-        io.emit('productUpdated', { product, message: `🔄 Admin vừa cập nhật: ${product.title}` });
+        io.emit('productUpdated', { product, message: ` Admin vừa cập nhật: ${product.title}` });
     }
 }));
 
@@ -49,7 +49,7 @@ router.delete('/:id', asyncHandler(async (req: any, res: any) => {
     const productId = req.params.id;
     await deleteProduct(req, res);
     if (res.statusCode === 200) {
-        io.emit('productDeleted', { productId, message: `🗑️ Admin vừa xóa sản phẩm` });
+        io.emit('productDeleted', { productId, message: ` Admin vừa xóa sản phẩm` });
     }
 }));
 
@@ -61,7 +61,7 @@ router.patch('/:id/stock-status', asyncHandler(async (req: any, res: any) => {
         io.emit('stockStatusChanged', { 
             productId: req.params.id, 
             is_out_of_stock,
-            message: is_out_of_stock ? '⚠️ Sản phẩm hết hàng' : '✅ Sản phẩm có hàng lại'
+            message: is_out_of_stock ? ' Sản phẩm hết hàng' : ' Sản phẩm có hàng lại'
         });
     }
 }));

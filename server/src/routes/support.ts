@@ -5,7 +5,7 @@ import { adminAuth } from '../middleware/adminAuth';
 const router = Router();
 
 /* ----------------------------------------------------
-   FIX EXPRESS TS RETURN ERROR (KHÔNG TẠO FILE MỚI)
+  
 ---------------------------------------------------- */
 const asyncHandler = (fn: any) => {
     return (req: any, res: any, next: any) => {

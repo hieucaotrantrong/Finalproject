@@ -102,11 +102,15 @@ const CartPage = ({ searchQuery = '', categoryFilter = '' }) => {
         return matchesSearch && matchesCategory;
 
     });
+/*------------------------------------------
+3 hàng đầu
+---------------------------------------------*/
 
-    // 3 hàng đầu
     const firstProducts = filteredProducts.slice(0, 12);
+/*------------------------------------------
+phần mở rộng
+---------------------------------------------*/
 
-    // phần mở rộng
     const moreProducts = filteredProducts.slice(12);
 
     return (

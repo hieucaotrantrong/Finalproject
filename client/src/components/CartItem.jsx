@@ -6,7 +6,9 @@ const formatPrice = (price) => {
     return numPrice.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 };
 
-// 🔥 thêm format sold
+
+/*
+*/
 const formatSold = (num) => {
     if (!num) return 0;
     if (num >= 1000) return (num / 1000).toFixed(1) + "k";

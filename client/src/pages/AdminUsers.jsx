@@ -94,7 +94,7 @@ const AdminUsers = () => {
             alert(' Tạo người dùng thành công!');
         } catch (err) {
             console.error(err);
-            alert(err?.response?.data?.error || '❌ Lỗi khi tạo người dùng');
+            alert(err?.response?.data?.error || ' Lỗi khi tạo người dùng');
         }
     };
 
